@@ -1,0 +1,283 @@
+/* 전체 컨테이너 */
+.app-container {
+  font-family: 'Malgun Gothic', sans-serif;
+  background-color: white;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* 상단 네비게이션 */
+.top-nav {
+  background: linear-gradient(135deg, #2196F3, #1976D2);
+  display: flex;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-tab {
+  background: transparent;
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px 8px 0 0;
+  margin-right: 2px;
+  transition: background-color 0.3s;
+}
+
+.nav-tab.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.nav-tab:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 메인 컨텐츠 영역 */
+.main-content {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  height: calc(100vh - 70px);
+}
+
+/* 왼쪽 사이드바 */
+.sidebar {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 구역 리스트 패널 */
+.area-list-panel {
+  background: white;
+  border: 2px solid #1976D2;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.panel-header {
+  background: #1976D2;
+  color: white;
+  padding: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.area-list {
+  padding: 15px;
+}
+
+.area-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.area-item:hover {
+  background-color: #f5f5f5;
+}
+
+.area-item:last-child {
+  border-bottom: none;
+}
+
+/* 오른쪽 메인 영역 */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* CAD 도면 표시 영역 */
+.cad-display-panel {
+  background: white;
+  border: 2px solid #1976D2;
+  border-radius: 8px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 툴바와 캔버스를 감싸는 컨테이너 */
+.cad-content {
+  flex: 1;
+  position: relative;
+  background: white;
+}
+
+/* CAD 툴바 */
+.cad-toolbar {
+  position: absolute;
+  left: 200px;
+  top: 50px;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  gap: 5px;
+  z-index: 10;
+}
+
+/* 공통 버튼 스타일 */
+.tool-button {
+  width: 40px;
+  height: 40px;
+  background: #1976D2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tool-button:hover {
+  background: #1565C0;
+}
+
+/* 돋보기 버튼 스타일 */
+.tool-button.magnifier {
+  font-size: 0; /* 텍스트 숨김 */
+  position: relative;
+}
+
+.tool-button.magnifier::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid white;
+  border-radius: 50%; /* 원 */
+}
+
+.tool-button.magnifier::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 2px;
+  background: white;
+  transform: rotate(45deg);
+  top: 22px;
+  left: 22px;
+}
+
+/* CAD 캔버스 영역 */
+.cad-canvas {
+  background: #e6f3ff;
+  border: 3px solid #87ceeb;
+  border-radius: 8px;
+  width: 900px;
+  height: 400px;
+  position: absolute;
+  top: 50px;
+  left: 300px;
+  overflow: hidden;
+}
+
+/* 도면 요소들 */
+.drawing-element {
+  position: absolute;
+}
+
+
+/* 구역 속성 입력/편집 패널 */
+.property-panel {
+  background: white;
+  border: 2px solid #1976D2;
+  border-radius: 8px;
+  padding: 0;
+  height: 200px;
+  overflow: hidden;
+}
+
+.property-panel .panel-header {
+  margin-bottom: 0;
+}
+
+/* 폼 콘텐츠 영역 */
+.form-content {
+  padding: 20px;
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 15px;
+}
+
+.form-label {
+  min-width: 60px;
+  font-weight: bold;
+}
+
+.form-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.save-button {
+  background: #1976D2;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+.save-button:hover {
+  background: #1565C0;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+  }
+  
+  .area-list-panel {
+    flex: 1;
+  }
+  
+  .cad-canvas {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    left: auto;
+    top: auto;
+    margin-top: 10px;
+  }
+  
+  .cad-toolbar {
+    position: relative;
+    left: auto;
+    top: auto;
+    flex-direction: row;
+    margin-bottom: 10px;
+  }
+}

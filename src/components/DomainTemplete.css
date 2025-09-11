@@ -1,0 +1,341 @@
+/* DomainTemplete.css - 도면 관리 스타일 정의 (글자 스타일 Template.css 기준으로 통일) */
+
+/* 컨테이너 */
+.domain-container {
+  width: 100%;
+  padding: 20px;
+  background-color: white;
+  min-height: 100vh;
+  font-family: 'Malgun Gothic', sans-serif;
+  color: #333;
+}
+
+/* 도면 리스트 섹션 */
+.domain-list-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.domain-list-header {
+  background: #1976D2;
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.domain-list-title {
+  font-size: 14px;
+  font-weight: bold; 
+  margin: 0;
+}
+
+.domain-search-btn {
+  background: white;
+  color: #1976D2;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.domain-search-btn:hover {
+  background: #f0f0f0;
+}
+
+.domain-list-content {
+  padding: 24px;
+}
+
+.domain-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.domain-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  font-size: 14px;
+}
+
+.domain-item:hover {
+  background: #f0f0f0;
+}
+
+.domain-item.selected {
+  background: #e3f2fd;
+  border-color: #1976D2;
+}
+
+.domain-bullet {
+  width: 8px;
+  height: 8px;
+  background: black;
+  border-radius: 50%;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.domain-name {
+  font-size: 14px;
+  color: #333;
+}
+
+.domain-empty {
+  text-align: center;
+  padding: 32px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* 도면 정보 입력/저장 섹션 */
+.domain-form-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  width: 100%;
+}
+
+.domain-form-header {
+  background: #1976D2;
+  color: white;
+  padding: 16px 24px;
+}
+
+.domain-form-title {
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.domain-form-content {
+  padding: 24px;
+}
+
+/* 2열 그리드 */
+.domain-form-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 32px;
+  width: 100%;
+}
+
+/* label + input 묶음 */
+.domain-form-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 15px;
+}
+
+/* 전체 폭 차지 항목 (설명/파일행용) */
+.domain-form-full {
+  grid-column: span 2;
+}
+
+/* 라벨 */
+.domain-form-label {
+  min-width: 60px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+/* input */
+.domain-form-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.domain-form-input:focus {
+  border-color: #1976D2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+.domain-form-input::placeholder {
+  color: #999;
+}
+
+/* textarea (다른 입력칸과 동일한 한 줄 높이) */
+.domain-form-textarea {
+  flex: 1;
+  height: 48px;         /* 다른 입력폼과 동일 높이 */
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  resize: none;         /* 높이 고정 */
+  box-sizing: border-box;
+}
+
+.domain-form-textarea::placeholder {
+  color: #999;
+  font-family: inherit;
+}
+
+.domain-form-textarea:focus {
+  border-color: #1976D2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+/* + - 버튼 */
+.domain-action-btn {
+  background: #1976D2;
+  color: white;
+  border: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.domain-action-btn:hover {
+  background: #1565C0;
+}
+
+.domain-action-btn:disabled {
+  background: #1976D2;
+  cursor: pointer;
+  opacity: 1;
+}
+
+/* 저장 버튼 */
+.domain-save-btn {
+  background: #1976D2;
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.domain-save-btn:hover {
+  background: #1565C0;
+}
+
+/* ===== 기존: 도면 설명 + 버튼 한 줄 배치(사용 안 해도 무방) ===== */
+.domain-form-description-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.domain-form-description-row .domain-form-label {
+  min-width: 80px;
+}
+
+/* 기존 규칙 보존 */
+.domain-form-description-row .domain-form-buttons-inline {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== 새로 추가: 도면 파일 업로드 행 + 버튼 우측 정렬 ===== */
+.domain-form-file-row {
+  grid-column: span 2;         /* 두 컬럼 전체 차지 */
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 업로드 영역(좌측) */
+.file-upload-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.uploaded-files {
+  font-size: 14px;
+  color: #555;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 버튼 그룹(우측) — 파일 업로드 행에도 적용되도록 범용 클래스 추가 */
+.domain-form-buttons-inline {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .domain-container {
+    padding: 12px;
+  }
+
+  .domain-form-grid-2col {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .domain-form-full {
+    grid-column: span 1;
+  }
+
+  .domain-form-label {
+    font-size: 14px;
+  }
+
+  .domain-list-header,
+  .domain-form-header {
+    padding: 12px 16px;
+  }
+
+  .domain-list-content,
+  .domain-form-content {
+    padding: 16px;
+  }
+
+  /* 모바일: 설명/파일 행 세로 배치 */
+  .domain-form-description-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .domain-form-file-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .domain-form-buttons-inline {
+    justify-content: flex-start;
+  }
+}
