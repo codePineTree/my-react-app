@@ -9,6 +9,9 @@ const CADDisplay = ({ cadFilePath }) => {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
+  const MAX_RETRIES = 15; // 15회 재시도
+  const RETRY_DELAY = 3000; // 4초마다 체크
+
   // ===================== 렌더링 함수 =====================
   function renderEntity(ctx, entity) {
     ctx.strokeStyle = "#333333";
@@ -202,12 +205,14 @@ const CADDisplay = ({ cadFilePath }) => {
     };
   };
 
-  // ===================== 파일 로드 =====================
-  const loadFile = async (filePathOrBlobUrl) => {
-    setLoading(true);
-    setError(null);
+  // ===================== 파일 로드 (재시도 로직 포함) =====================
+  const loadFile = async (filePathOrBlobUrl, retryCount = 0) => {
+    if (retryCount === 0) {
+      setLoading(true);
+      setError(null);
+    }
 
-    console.log(`📂 CADDisplay: 파일 로딩 시작 -> ${filePathOrBlobUrl}`);
+    console.log(`📂 CADDisplay: 파일 로딩 시작 -> ${filePathOrBlobUrl} (시도: ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
     try {
       let dxfText;
@@ -218,14 +223,26 @@ const CADDisplay = ({ cadFilePath }) => {
         const decoder = new TextDecoder("utf-8");
         dxfText = decoder.decode(buffer);
       } else {
-        console.log('📄 일반 파일 경로 처리');
-        const fullPath = `/cadfiles/${filePathOrBlobUrl}`;
-        const res = await fetch(fullPath);
-        if (!res.ok) throw new Error(`파일을 찾을 수 없습니다: ${fullPath}`);
+        console.log('📄 백엔드 API를 통한 DXF 내용 가져오기');
+        const apiUrl = `http://localhost:8080/api/cad/convertAndGetDxf?fileName=${filePathOrBlobUrl}`;
+        console.log('📡 API 호출:', apiUrl);
+        
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+          throw new Error(`API 요청 실패: ${res.status} ${res.statusText}`);
+        }
+        
         dxfText = await res.text();
+        console.log('📄 DXF 내용 가져오기 완료, 길이:', dxfText.length);
+        
+        // HTML이 아닌 DXF 내용인지 검증
+        if (dxfText.includes('<html') || dxfText.includes('<!DOCTYPE')) {
+          throw new Error('DXF 파일 대신 HTML 페이지가 반환되었습니다.');
+        }
       }
 
       console.log('📝 DXF 파싱 시작, 내용 길이:', dxfText.length);
+      console.log('📄 DXF 내용 시작 100자:', dxfText.substring(0, 100));
 
       const parser = new DxfParser();
       const dxf = parser.parseSync(dxfText);
@@ -243,11 +260,35 @@ const CADDisplay = ({ cadFilePath }) => {
       } else {
         renderDXF(dxf);
       }
+
+      // 성공 시 에러 상태 초기화
+      setError(null);
+
     } catch (err) {
-      console.error("❌ DXF 로딩/파싱 실패:", err);
-      setError(err.message);
+      console.error("❌ DXF 로딩/파싱 실패:", err.message);
+      
+      // "EOF group not read" 에러이고 재시도 횟수가 남은 경우
+      if (err.message.includes("EOF group not read") && retryCount < MAX_RETRIES) {
+        console.log(`🔄 재시도 ${retryCount + 1}/${MAX_RETRIES} - ${RETRY_DELAY/1000}초 후 다시 시도...`);
+        setError(`파일 생성 중... (${retryCount + 1}/${MAX_RETRIES}) - ${RETRY_DELAY/1000}초 후 재시도`);
+        
+        setTimeout(() => {
+          loadFile(filePathOrBlobUrl, retryCount + 1);
+        }, RETRY_DELAY);
+        return;
+      }
+      
+      // 다른 에러이거나 최대 재시도 초과 시
+      if (retryCount >= MAX_RETRIES) {
+        console.log(`❌ 최대 재시도 횟수 초과: ${retryCount + 1}/${MAX_RETRIES + 1}`);
+        setError(`파일 로딩 실패: 최대 재시도 횟수 초과 (${MAX_RETRIES}회)`);
+      } else {
+        setError(`파일 로딩 실패: ${err.message}`);
+      }
     } finally {
-      setLoading(false);
+      if (retryCount === 0) {
+        setLoading(false);
+      }
     }
   };
 
@@ -379,7 +420,8 @@ const CADDisplay = ({ cadFilePath }) => {
             <div style={{
               position: "absolute", top: "10px", left: "10px",
               background: "rgba(255,0,0,0.1)", color: "red",
-              padding: "5px 10px", borderRadius: "5px", fontSize: "12px"
+              padding: "5px 10px", borderRadius: "5px", fontSize: "12px",
+              maxWidth: "300px"
             }}>
               ❌ {error}
             </div>

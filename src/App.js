@@ -1,5 +1,5 @@
 // App.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './components/AreaTemplete.css';
 import Navigation from './components/Navigation';
 import Sidebar from './components/Sidebar';
@@ -8,6 +8,8 @@ import PropertyPanel from './components/PropertyPanel';
 import DomainManagement from './components/DomainManagement';
 
 const App = () => {
+  const API_BASE_URL = 'http://localhost:8080';
+  
   const [activeTab, setActiveTab] = useState('도면관리');
   const [selectedArea, setSelectedArea] = useState('구역명 2');
   const [areaName, setAreaName] = useState('구역명 2');
@@ -17,6 +19,61 @@ const App = () => {
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
   const [cadFileType, setCadFileType] = useState(''); // dxf / dwf
+
+  // ------------------ 페이지 로딩시 변환된 파일 체크 ------------------
+  useEffect(() => {
+    console.log('🚀 App.js 초기화 시작');
+    checkForConvertedFiles();
+  }, []);
+
+  const checkForConvertedFiles = async () => {
+    try {
+      console.log('🔍 변환된 파일 체크 시작...');
+      console.log('API_BASE_URL 값:', API_BASE_URL);
+      const requestUrl = `${API_BASE_URL}/api/cad/checkConvertedFiles?t=${Date.now()}`;
+      console.log('📡 요청 보내는 주소:', requestUrl);
+      
+      const response = await fetch(requestUrl, {
+        method: 'GET',
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      console.log('📡 응답 상태:', response.status);
+      console.log('📡 응답 헤더:', response.headers.get('content-type'));
+      
+      // 응답이 JSON인지 확인
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.log('❌ API가 아직 구현되지 않음 - 도면관리 탭 유지');
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('📋 체크 결과:', data);
+      
+      if (data.hasFiles) {
+        console.log('✅ 변환된 파일 발견:', data.fileName);
+        setCadFilePath(data.fileName);
+        setCadFileType('dxf');
+        setActiveTab('구역관리');
+        console.log('📍 구역관리 탭으로 자동 전환');
+      } else if (data.generating) {
+        console.log('⏳ 파일 생성 중... 3초 후 재시도');
+        setTimeout(() => {
+          checkForConvertedFiles();
+        }, 3000);
+      } else {
+        console.log('❌ 변환된 파일 없음 - 도면관리 탭 유지');
+      }
+    } catch (error) {
+      console.log('❌ API 호출 실패 (아직 구현 안됨?) - 도면관리 탭 유지');
+      // 에러 로그는 개발시에만 출력
+      // console.error('파일 체크 오류:', error);
+    }
+  };
 
   // ------------------ 도메인 더블클릭 (DomainManagement 연동) ------------------
   const handleDomainDoubleClick = (domainData) => {
