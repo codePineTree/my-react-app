@@ -130,9 +130,9 @@
 .tool-button {
   width: 40px;
   height: 40px;
-  background: #1976D2;
-  color: white;
-  border: none;
+  background: white;
+  color: #333;
+  border: 2px solid #1976D2;
   border-radius: 4px;
   cursor: pointer;
   font-size: 20px;
@@ -144,13 +144,42 @@
 }
 
 .tool-button:hover {
-  background: #1565C0;
+  background: #f5f5f5;
+}
+
+/* 펜 모드 버튼 스타일 */
+.tool-button.pen-mode.active {
+  background: #ff4444 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.tool-button.pen-mode.active:hover {
+  background: #ff3333 !important;
+}
+
+/* 지우개 버튼 스타일 */
+.tool-button.eraser-button {
+  background: white;
+  color: #1976D2;
+  border: 2px solid #1976D2;
+  font-size: 20px;
+}
+
+.tool-button.eraser-button:hover {
+  background: #f0f0f0;
 }
 
 /* 돋보기 버튼 스타일 */
 .tool-button.magnifier {
+  background: white;
+  border: 2px solid #1976D2;
   font-size: 0; /* 텍스트 숨김 */
   position: relative;
+}
+
+.tool-button.magnifier:hover {
+  background: #f5f5f5;
 }
 
 .tool-button.magnifier::before {
@@ -160,7 +189,7 @@
   left: 8px;
   width: 16px;
   height: 16px;
-  border: 2px solid white;
+  border: 2px solid #1976D2;
   border-radius: 50%; /* 원 */
 }
 
@@ -169,7 +198,7 @@
   position: absolute;
   width: 10px;
   height: 2px;
-  background: white;
+  background: #1976D2;
   transform: rotate(45deg);
   top: 22px;
   left: 22px;
@@ -192,7 +221,6 @@
 .drawing-element {
   position: absolute;
 }
-
 
 /* 구역 속성 입력/편집 패널 */
 .property-panel {

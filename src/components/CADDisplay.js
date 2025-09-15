@@ -8,6 +8,9 @@ const CADDisplay = ({ cadFilePath }) => {
   const [error, setError] = useState(null);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  
+  // 펜 모드 상태
+  const [isPenMode, setIsPenMode] = useState(false);
 
   const MAX_RETRIES = 15; // 15회 재시도
   const RETRY_DELAY = 3000; // 4초마다 체크
@@ -325,13 +328,16 @@ const CADDisplay = ({ cadFilePath }) => {
     };
 
     const handleMouseDown = (event) => {
+      if (isPenMode) return; // 펜 모드에서는 드래그 비활성화
+      
       isMouseDown = true;
       mouseX = event.clientX;
       mouseY = event.clientY;
     };
 
     const handleMouseMove = (event) => {
-      if (!isMouseDown) return;
+      if (isPenMode || !isMouseDown) return; // 펜 모드에서는 이동 비활성화
+      
       const deltaX = event.clientX - mouseX;
       const deltaY = event.clientY - mouseY;
 
@@ -364,19 +370,21 @@ const CADDisplay = ({ cadFilePath }) => {
       canvas.removeEventListener("mouseup", handleMouseUp);
       canvas.removeEventListener("mouseleave", handleMouseUp);
     };
-  }, [dxfData, scale, offset]);
+  }, [dxfData, scale, offset, isPenMode]);
 
-  // ===================== 줌/팬 제어 =====================
-  const handleZoomIn = () => {
-    const newScale = scale * 1.2;
-    setScale(newScale);
-    if (dxfData) renderDXF(dxfData, newScale, offset);
+  // ===================== 버튼 기능들 =====================
+  const handlePenMode = () => {
+    // 펜 모드 토글
+    setIsPenMode(!isPenMode);
+    console.log("구역관리 모드:", !isPenMode);
   };
 
-  const handleZoomOut = () => {
-    const newScale = scale * 0.8;
-    setScale(newScale);
-    if (dxfData) renderDXF(dxfData, newScale, offset);
+  const handleEraser = () => {
+    // 지우개 기능 - 캔버스 초기화하고 원본 DXF 다시 렌더링
+    console.log("지우개 실행");
+    if (dxfData) {
+      renderDXF(dxfData, scale, offset);
+    }
   };
 
   const handleFitToView = () => {
@@ -398,14 +406,36 @@ const CADDisplay = ({ cadFilePath }) => {
       <div className="panel-header">CAD 도면 표시 영역</div>
       <div className="cad-content">
         <div className="cad-toolbar">
-          <button className="tool-button" onClick={handleZoomIn}>+</button>
-          <button className="tool-button" onClick={handleZoomOut}>-</button>
-          <button className="tool-button magnifier" onClick={handleFitToView}>🔍</button>
+          <button 
+            className={`tool-button pen-mode ${isPenMode ? 'active' : ''}`}
+            onClick={handlePenMode}
+            title="구역 추가"
+          >
+            🖊️
+          </button>
+          <button 
+            className="tool-button eraser-button" 
+            onClick={handleEraser}
+            title="지우개"
+          >
+            🧽
+          </button>
+          <button 
+            className="tool-button magnifier" 
+            onClick={handleFitToView}
+            title="전체 보기"
+          >
+          </button>
         </div>
         <div className="cad-canvas" style={{ position: "relative" }}>
           <canvas
             ref={canvasRef}
-            style={{ width: "100%", height: "100%", display: "block" }}
+            style={{ 
+              width: "100%", 
+              height: "100%", 
+              display: "block",
+              cursor: isPenMode ? 'crosshair' : 'default'
+            }}
           />
           {loading && (
             <div style={{
@@ -426,13 +456,15 @@ const CADDisplay = ({ cadFilePath }) => {
               ❌ {error}
             </div>
           )}
-          {cadFilePath && !loading && !error && (
+          {isPenMode && (
             <div style={{
-              position: "absolute", bottom: "10px", left: "10px",
-              background: "rgba(255,255,255,0.8)", padding: "5px 10px",
-              borderRadius: "5px", fontSize: "12px"
+              position: "absolute", top: "10px", right: "10px",
+              background: "rgba(255,255,0,0.9)", color: "#333",
+              padding: "8px 12px", borderRadius: "5px", fontSize: "13px",
+              border: "2px solid #ff4444",
+              fontWeight: "bold"
             }}>
-              📁 {cadFilePath}
+              🖊️ 구역 관리 모드 활성화
             </div>
           )}
         </div>
