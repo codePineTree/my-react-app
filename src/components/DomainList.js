@@ -20,7 +20,7 @@ const DomainList = ({ domains, selectedDomain, onDomainSelect, onRowDoubleClick,
       <div className="domain-list-content">
         {domains.length === 0 ? (
           <div className="domain-empty">
-            도메인이 없습니다.
+            도면이 없습니다.
           </div>
         ) : (
           <div className="domain-items">

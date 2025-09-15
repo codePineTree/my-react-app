@@ -413,7 +413,7 @@ const CADDisplay = ({ cadFilePath }) => {
               transform: "translate(-50%, -50%)",
               background: "rgba(255,255,255,0.9)", padding: "10px", borderRadius: "5px"
             }}>
-              🔄 DXF 파일 로딩 중...
+              🔄 CAD 파일 로딩 중...
             </div>
           )}
           {error && (

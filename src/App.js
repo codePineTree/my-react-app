@@ -30,15 +30,19 @@ const App = () => {
     try {
       console.log('🔍 변환된 파일 체크 시작...');
       
-      // 변환 요청 플래그 체크
+      // 🔥 변환 요청 플래그와 소스 체크
       const conversionRequested = sessionStorage.getItem('conversionRequested');
+      const conversionSource = sessionStorage.getItem('conversionSource');
       
-      if (!conversionRequested) {
-        console.log('❌ 변환 요청 없음 - 도면관리 탭 유지');
+      // 변환 요청이 없거나 DWF 변환이 아닌 경우 도면관리 탭 유지
+      if (!conversionRequested || conversionSource !== 'dwf_conversion') {
+        console.log('❌ DWF 변환 요청 없음 - 도면관리 탭 유지');
+        console.log('conversionRequested:', conversionRequested);
+        console.log('conversionSource:', conversionSource);
         return;
       }
       
-      console.log('✅ 변환 요청 플래그 확인됨');
+      console.log('✅ DWF 변환 요청 플래그 확인됨');
       console.log('API_BASE_URL 값:', API_BASE_URL);
       
       // 요청된 파일명을 URL 파라미터로 추가
@@ -65,6 +69,7 @@ const App = () => {
         // 실패 시 플래그 제거
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
+        sessionStorage.removeItem('conversionSource');
         return;
       }
       
@@ -77,6 +82,7 @@ const App = () => {
         // 성공 시 플래그 제거
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
+        sessionStorage.removeItem('conversionSource');
         
         setCadFilePath(data.fileName);
         setCadFileType('dxf');
@@ -92,12 +98,14 @@ const App = () => {
         // 실패 시 플래그 제거
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
+        sessionStorage.removeItem('conversionSource');
       }
     } catch (error) {
       console.log('❌ API 호출 실패 (아직 구현 안됨?) - 도면관리 탭 유지');
       // 에러 시 플래그 제거
       sessionStorage.removeItem('conversionRequested');
       sessionStorage.removeItem('conversionFile');
+      sessionStorage.removeItem('conversionSource');
       // 에러 로그는 개발시에만 출력
       // console.error('파일 체크 오류:', error);
     }

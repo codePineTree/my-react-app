@@ -188,13 +188,14 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       return;
     }
 
-    // 변환 요청 플래그 설정
-    sessionStorage.setItem('conversionRequested', 'true');
-    sessionStorage.setItem('conversionFile', domain.FILE_PATH);
-
     let finalData = { ...domain };
 
     if (domain.FILE_PATH.toLowerCase().endsWith('.dwf')) {
+      // 🔥 DWF 파일만 변환 플래그 설정 - 이때만 리디렉션 후 구역관리 탭 유지
+      sessionStorage.setItem('conversionRequested', 'true');
+      sessionStorage.setItem('conversionFile', domain.FILE_PATH);
+      sessionStorage.setItem('conversionSource', 'dwf_conversion'); // 변환 소스 명시
+
       try {
         console.log('DWF 변환 시작:', domain.FILE_PATH);
 
@@ -212,6 +213,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
           // 실패 시 플래그 제거
           sessionStorage.removeItem('conversionRequested');
           sessionStorage.removeItem('conversionFile');
+          sessionStorage.removeItem('conversionSource');
           return;
         }
 
@@ -222,6 +224,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
           // 실패 시 플래그 제거
           sessionStorage.removeItem('conversionRequested');
           sessionStorage.removeItem('conversionFile');
+          sessionStorage.removeItem('conversionSource');
           return;
         }
 
@@ -244,10 +247,13 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         // 실패 시 플래그 제거
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
+        sessionStorage.removeItem('conversionSource');
         return;
       }
     } else {
-      // DXF 파일인 경우도 플래그는 설정 (구역관리로 이동하므로)
+      // 🔥 DXF 파일은 변환 플래그 설정하지 않음 - 일반 더블클릭 처리
+      console.log('DXF 파일 - 변환 플래그 설정하지 않음');
+      
       finalData = {
         ...domain,
         cadFilePath: domain.FILE_PATH,  // 원본 파일명
