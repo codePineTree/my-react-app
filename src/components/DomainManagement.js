@@ -188,6 +188,10 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       return;
     }
 
+    // 변환 요청 플래그 설정
+    sessionStorage.setItem('conversionRequested', 'true');
+    sessionStorage.setItem('conversionFile', domain.FILE_PATH);
+
     let finalData = { ...domain };
 
     if (domain.FILE_PATH.toLowerCase().endsWith('.dwf')) {
@@ -205,6 +209,9 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         if (!response.data || response.data.length < 10) {
           console.warn('DXF 내용이 비어있음');
           alert('DWF 변환 결과가 없습니다.');
+          // 실패 시 플래그 제거
+          sessionStorage.removeItem('conversionRequested');
+          sessionStorage.removeItem('conversionFile');
           return;
         }
 
@@ -212,6 +219,9 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         if (!response.data.includes('SECTION') && !response.data.includes('HEADER')) {
           console.warn('올바른 DXF 형식이 아님');
           alert('변환된 내용이 올바른 DXF 형식이 아닙니다.');
+          // 실패 시 플래그 제거
+          sessionStorage.removeItem('conversionRequested');
+          sessionStorage.removeItem('conversionFile');
           return;
         }
 
@@ -231,10 +241,13 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       } catch (e) {
         console.error('DWF 변환 실패:', e);
         alert('DWF 변환 실패: ' + e.message);
+        // 실패 시 플래그 제거
+        sessionStorage.removeItem('conversionRequested');
+        sessionStorage.removeItem('conversionFile');
         return;
       }
     } else {
-      // DXF 파일인 경우
+      // DXF 파일인 경우도 플래그는 설정 (구역관리로 이동하므로)
       finalData = {
         ...domain,
         cadFilePath: domain.FILE_PATH,  // 원본 파일명

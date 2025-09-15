@@ -29,9 +29,23 @@ const App = () => {
   const checkForConvertedFiles = async () => {
     try {
       console.log('🔍 변환된 파일 체크 시작...');
+      
+      // 변환 요청 플래그 체크
+      const conversionRequested = sessionStorage.getItem('conversionRequested');
+      
+      if (!conversionRequested) {
+        console.log('❌ 변환 요청 없음 - 도면관리 탭 유지');
+        return;
+      }
+      
+      console.log('✅ 변환 요청 플래그 확인됨');
       console.log('API_BASE_URL 값:', API_BASE_URL);
-      const requestUrl = `${API_BASE_URL}/api/cad/checkConvertedFiles?t=${Date.now()}`;
+      
+      // 요청된 파일명을 URL 파라미터로 추가
+      const requestedFile = sessionStorage.getItem('conversionFile');
+      const requestUrl = `${API_BASE_URL}/api/cad/checkConvertedFiles?fileName=${requestedFile}&t=${Date.now()}`;
       console.log('📡 요청 보내는 주소:', requestUrl);
+      console.log('🎯 체크할 파일:', requestedFile);
       
       const response = await fetch(requestUrl, {
         method: 'GET',
@@ -48,6 +62,9 @@ const App = () => {
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         console.log('❌ API가 아직 구현되지 않음 - 도면관리 탭 유지');
+        // 실패 시 플래그 제거
+        sessionStorage.removeItem('conversionRequested');
+        sessionStorage.removeItem('conversionFile');
         return;
       }
       
@@ -56,6 +73,11 @@ const App = () => {
       
       if (data.hasFiles) {
         console.log('✅ 변환된 파일 발견:', data.fileName);
+        
+        // 성공 시 플래그 제거
+        sessionStorage.removeItem('conversionRequested');
+        sessionStorage.removeItem('conversionFile');
+        
         setCadFilePath(data.fileName);
         setCadFileType('dxf');
         setActiveTab('구역관리');
@@ -67,9 +89,15 @@ const App = () => {
         }, 3000);
       } else {
         console.log('❌ 변환된 파일 없음 - 도면관리 탭 유지');
+        // 실패 시 플래그 제거
+        sessionStorage.removeItem('conversionRequested');
+        sessionStorage.removeItem('conversionFile');
       }
     } catch (error) {
       console.log('❌ API 호출 실패 (아직 구현 안됨?) - 도면관리 탭 유지');
+      // 에러 시 플래그 제거
+      sessionStorage.removeItem('conversionRequested');
+      sessionStorage.removeItem('conversionFile');
       // 에러 로그는 개발시에만 출력
       // console.error('파일 체크 오류:', error);
     }
