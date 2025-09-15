@@ -1,21 +1,42 @@
 import React, { useRef, useEffect, useState } from "react";
 import DxfParser from "dxf-parser";
+import AreaDrawing from "./AreaDrawing";
+import AreaManager from "./AreaManager";
 
+/**
+ * CADDisplay 컴포넌트 - 메인 CAD 뷰어
+ * 
+ * 역할: 
+ * 1. DXF 파일 로딩 및 기본 CAD 도면 렌더링
+ * 2. 줌/팬 등 기본 뷰 조작 기능
+ * 3. 펜 모드 및 지우개 모드 상태 관리
+ * 4. AreaDrawing과 AreaManager 컴포넌트들을 조율하는 컨트롤러 역할
+ */
 const CADDisplay = ({ cadFilePath }) => {
   const canvasRef = useRef(null);
+  const areaManagerRef = useRef(null); // AreaManager 참조용
+  
+  // ==================== 기존 CAD 렌더링 상태 ====================
   const [dxfData, setDxfData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   
-  // 펜 모드 상태
+  // ==================== 구역 관리 모드 상태 ====================
+  // 펜 모드: 구역 그리기 활성화
   const [isPenMode, setIsPenMode] = useState(false);
+  
+  // 지우개 모드: 구역 삭제 활성화  
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  
+  // 현재 모델 ID (파일명에서 추출)
+  const [currentModelId, setCurrentModelId] = useState(null);
 
-  const MAX_RETRIES = 15; // 15회 재시도
-  const RETRY_DELAY = 3000; // 4초마다 체크
+  const MAX_RETRIES = 15;
+  const RETRY_DELAY = 3000;
 
-  // ===================== 렌더링 함수 =====================
+  // ==================== DXF 렌더링 함수들 (기존 코드 유지) ====================
   function renderEntity(ctx, entity) {
     ctx.strokeStyle = "#333333";
     ctx.lineWidth = 1 / ctx.getTransform().a;
@@ -102,6 +123,10 @@ const CADDisplay = ({ cadFilePath }) => {
     }
   }
 
+  /**
+   * DXF 도면을 Canvas에 렌더링하는 메인 함수
+   * 구역 렌더링은 AreaManager에서 별도 처리됨
+   */
   function renderDXF(dxfData, currentScale = scale, currentOffset = offset) {
     console.log("🖌️ DXF 렌더링 중...", { scale: currentScale, offset: currentOffset });
     const canvas = canvasRef.current;
@@ -111,10 +136,12 @@ const CADDisplay = ({ cadFilePath }) => {
     canvas.width = 900;
     canvas.height = 400;
 
+    // 캔버스 초기화
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#e6f3ff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // DXF 엔티티 렌더링
     ctx.save();
     ctx.translate(currentOffset.x, currentOffset.y);
     ctx.scale(currentScale, currentScale);
@@ -122,9 +149,12 @@ const CADDisplay = ({ cadFilePath }) => {
     dxfData.entities.forEach((entity) => renderEntity(ctx, entity));
 
     ctx.restore();
+
+    // DXF 렌더링 완료 후 구역들도 다시 렌더링
+    // AreaManager가 useEffect로 자동 감지하여 렌더링함
   }
 
-  // ===================== 좌표 계산 =====================
+  // ==================== 좌표 계산 함수들 (기존 코드 유지) ====================
   const calculateBounds = (entities) => {
     let minX = Infinity,
       minY = Infinity,
@@ -208,7 +238,7 @@ const CADDisplay = ({ cadFilePath }) => {
     };
   };
 
-  // ===================== 파일 로드 (재시도 로직 포함) =====================
+  // ==================== 파일 로드 함수 (기존 코드 유지) ====================
   const loadFile = async (filePathOrBlobUrl, retryCount = 0) => {
     if (retryCount === 0) {
       setLoading(true);
@@ -238,18 +268,20 @@ const CADDisplay = ({ cadFilePath }) => {
         dxfText = await res.text();
         console.log('📄 DXF 내용 가져오기 완료, 길이:', dxfText.length);
         
-        // HTML이 아닌 DXF 내용인지 검증
         if (dxfText.includes('<html') || dxfText.includes('<!DOCTYPE')) {
           throw new Error('DXF 파일 대신 HTML 페이지가 반환되었습니다.');
         }
       }
 
       console.log('📝 DXF 파싱 시작, 내용 길이:', dxfText.length);
-      console.log('📄 DXF 내용 시작 100자:', dxfText.substring(0, 100));
 
       const parser = new DxfParser();
       const dxf = parser.parseSync(dxfText);
       setDxfData(dxf);
+
+      // 모델 ID 설정 (파일명에서 추출)
+      const modelId = extractModelIdFromPath(filePathOrBlobUrl);
+      setCurrentModelId(modelId);
 
       console.log("✅ DXF 파싱 완료, 엔티티 수:", dxf.entities.length);
 
@@ -264,13 +296,11 @@ const CADDisplay = ({ cadFilePath }) => {
         renderDXF(dxf);
       }
 
-      // 성공 시 에러 상태 초기화
       setError(null);
 
     } catch (err) {
       console.error("❌ DXF 로딩/파싱 실패:", err.message);
       
-      // "EOF group not read" 에러이고 재시도 횟수가 남은 경우
       if (err.message.includes("EOF group not read") && retryCount < MAX_RETRIES) {
         console.log(`🔄 재시도 ${retryCount + 1}/${MAX_RETRIES} - ${RETRY_DELAY/1000}초 후 다시 시도...`);
         setError(`파일 생성 중... (${retryCount + 1}/${MAX_RETRIES}) - ${RETRY_DELAY/1000}초 후 재시도`);
@@ -281,7 +311,6 @@ const CADDisplay = ({ cadFilePath }) => {
         return;
       }
       
-      // 다른 에러이거나 최대 재시도 초과 시
       if (retryCount >= MAX_RETRIES) {
         console.log(`❌ 최대 재시도 횟수 초과: ${retryCount + 1}/${MAX_RETRIES + 1}`);
         setError(`파일 로딩 실패: 최대 재시도 횟수 초과 (${MAX_RETRIES}회)`);
@@ -295,11 +324,24 @@ const CADDisplay = ({ cadFilePath }) => {
     }
   };
 
-  // ===================== useEffect =====================
-  useEffect(() => {
-    if (cadFilePath) loadFile(cadFilePath);
-  }, [cadFilePath]);
+  /**
+   * 파일 경로에서 모델 ID 추출
+   * @param {string} filePath - 파일 경로
+   * @returns {string} 모델 ID
+   */
+  const extractModelIdFromPath = (filePath) => {
+    if (!filePath) return 'DEFAULT_MODEL';
+    
+    // 파일명만 추출 (경로 제거)
+    const fileName = filePath.split('/').pop() || filePath;
+    
+    // 확장자 제거
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+    
+    return nameWithoutExt || 'DEFAULT_MODEL';
+  };
 
+  // ==================== 기존 마우스 이벤트 (줌/팬) ====================
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !dxfData) return;
@@ -328,7 +370,8 @@ const CADDisplay = ({ cadFilePath }) => {
     };
 
     const handleMouseDown = (event) => {
-      if (isPenMode) return; // 펜 모드에서는 드래그 비활성화
+      // 구역 관리 모드들에서는 드래그 비활성화
+      if (isPenMode || isDeleteMode) return;
       
       isMouseDown = true;
       mouseX = event.clientX;
@@ -336,7 +379,8 @@ const CADDisplay = ({ cadFilePath }) => {
     };
 
     const handleMouseMove = (event) => {
-      if (isPenMode || !isMouseDown) return; // 펜 모드에서는 이동 비활성화
+      // 구역 관리 모드들에서는 이동 비활성화
+      if (isPenMode || isDeleteMode || !isMouseDown) return;
       
       const deltaX = event.clientX - mouseX;
       const deltaY = event.clientY - mouseY;
@@ -370,23 +414,44 @@ const CADDisplay = ({ cadFilePath }) => {
       canvas.removeEventListener("mouseup", handleMouseUp);
       canvas.removeEventListener("mouseleave", handleMouseUp);
     };
-  }, [dxfData, scale, offset, isPenMode]);
+  }, [dxfData, scale, offset, isPenMode, isDeleteMode]);
 
-  // ===================== 버튼 기능들 =====================
+  // ==================== 버튼 이벤트 핸들러들 ====================
+  /**
+   * 펜 모드 토글 핸들러
+   * 펜 모드 활성화 시 지우개 모드는 자동 비활성화
+   */
   const handlePenMode = () => {
-    // 펜 모드 토글
-    setIsPenMode(!isPenMode);
-    console.log("구역관리 모드:", !isPenMode);
-  };
-
-  const handleEraser = () => {
-    // 지우개 기능 - 캔버스 초기화하고 원본 DXF 다시 렌더링
-    console.log("지우개 실행");
-    if (dxfData) {
-      renderDXF(dxfData, scale, offset);
+    const newPenMode = !isPenMode;
+    setIsPenMode(newPenMode);
+    
+    // 펜 모드 활성화 시 지우개 모드 비활성화
+    if (newPenMode) {
+      setIsDeleteMode(false);
     }
+    
+    console.log("펜 모드:", newPenMode);
   };
 
+  /**
+   * 지우개 모드 토글 핸들러  
+   * 지우개 모드 활성화 시 펜 모드는 자동 비활성화
+   */
+  const handleEraser = () => {
+    const newDeleteMode = !isDeleteMode;
+    setIsDeleteMode(newDeleteMode);
+    
+    // 지우개 모드 활성화 시 펜 모드 비활성화
+    if (newDeleteMode) {
+      setIsPenMode(false);
+    }
+    
+    console.log("지우개 모드:", newDeleteMode);
+  };
+
+  /**
+   * 전체보기 핸들러 (기존 기능 유지)
+   */
   const handleFitToView = () => {
     if (dxfData) {
       const bounds = calculateBounds(dxfData.entities);
@@ -400,23 +465,54 @@ const CADDisplay = ({ cadFilePath }) => {
     }
   };
 
-  // ===================== 렌더링 JSX =====================
+  /**
+   * 구역 그리기 완료 콜백
+   * AreaDrawing에서 호출됨
+   */
+  const handleAreaComplete = (coordinates) => {
+    console.log('CADDisplay: 구역 그리기 완료됨', coordinates);
+    
+    // AreaManager에게 새 구역 추가 요청
+    if (areaManagerRef.current) {
+      areaManagerRef.current.addArea(coordinates);
+    }
+    
+    // 구역 완성 후 펜 모드 비활성화 (선택사항)
+    // setIsPenMode(false);
+  };
+
+  /**
+   * 구역 변경 콜백
+   * AreaManager에서 호출됨
+   */
+  const handleAreasChange = (areas) => {
+    console.log('CADDisplay: 구역 데이터 변경됨', areas.length, '개');
+    // 필요시 추가 처리 (예: 왼쪽 리스트 업데이트)
+  };
+
+  // ==================== 초기화 ====================
+  useEffect(() => {
+    if (cadFilePath) loadFile(cadFilePath);
+  }, [cadFilePath]);
+
+  // ==================== 컴포넌트 렌더링 ====================
   return (
     <div className="cad-display-panel">
       <div className="panel-header">CAD 도면 표시 영역</div>
       <div className="cad-content">
+        {/* 툴바 */}
         <div className="cad-toolbar">
           <button 
             className={`tool-button pen-mode ${isPenMode ? 'active' : ''}`}
             onClick={handlePenMode}
-            title="구역 추가"
+            title="구역 그리기 모드"
           >
             🖊️
           </button>
           <button 
-            className="tool-button eraser-button" 
+            className={`tool-button eraser-button ${isDeleteMode ? 'active' : ''}`}
             onClick={handleEraser}
-            title="지우개"
+            title="구역 삭제 모드"
           >
             🧽
           </button>
@@ -427,6 +523,8 @@ const CADDisplay = ({ cadFilePath }) => {
           >
           </button>
         </div>
+
+        {/* 메인 캔버스 영역 */}
         <div className="cad-canvas" style={{ position: "relative" }}>
           <canvas
             ref={canvasRef}
@@ -434,9 +532,32 @@ const CADDisplay = ({ cadFilePath }) => {
               width: "100%", 
               height: "100%", 
               display: "block",
-              cursor: isPenMode ? 'crosshair' : 'default'
+              cursor: isPenMode ? 'crosshair' : (isDeleteMode ? 'pointer' : 'default')
             }}
           />
+
+          {/* 구역 그리기 컴포넌트 */}
+          <AreaDrawing
+            canvasRef={canvasRef}
+            isPenMode={isPenMode}
+            dxfData={dxfData}
+            scale={scale}
+            offset={offset}
+            onAreaComplete={handleAreaComplete}
+          />
+
+          {/* 구역 관리 컴포넌트 */}
+          <AreaManager
+            ref={areaManagerRef}
+            canvasRef={canvasRef}
+            modelId={currentModelId}
+            scale={scale}
+            offset={offset}
+            onAreasChange={handleAreasChange}
+            isDeleteMode={isDeleteMode}
+          />
+
+          {/* 로딩 표시 */}
           {loading && (
             <div style={{
               position: "absolute", top: "50%", left: "50%",
@@ -446,6 +567,8 @@ const CADDisplay = ({ cadFilePath }) => {
               🔄 CAD 파일 로딩 중...
             </div>
           )}
+
+          {/* 에러 표시 */}
           {error && (
             <div style={{
               position: "absolute", top: "10px", left: "10px",
@@ -456,6 +579,8 @@ const CADDisplay = ({ cadFilePath }) => {
               ❌ {error}
             </div>
           )}
+
+          {/* 펜 모드 안내 */}
           {isPenMode && (
             <div style={{
               position: "absolute", top: "10px", right: "10px",
@@ -464,7 +589,7 @@ const CADDisplay = ({ cadFilePath }) => {
               border: "2px solid #ff4444",
               fontWeight: "bold"
             }}>
-              🖊️ 구역 관리 모드 활성화
+              🖊️ 구역 그리기 모드 활성화
             </div>
           )}
         </div>
