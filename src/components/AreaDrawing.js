@@ -60,12 +60,13 @@ const AreaDrawing = ({
   };
 
   /**
-   * 클릭한 지점이 첫 번째 점과 가까운지 검사
+   * 클릭한 지점이 첫 번째 점과 정확히 가까운지 검사 (더 엄격한 검사)
    */
   const checkCloseToFirstPoint = (clickPoint, points) => {
     if (!clickPoint || points.length < 3) return false;
     
     const distance = getCanvasDistance(clickPoint, points[0]);
+    console.log(`첫 번째 점과의 거리: ${distance.toFixed(2)}px (기준: ${CLOSE_DISTANCE}px)`);
     return distance <= CLOSE_DISTANCE;
   };
 
@@ -82,6 +83,150 @@ const AreaDrawing = ({
       area -= points[j].x * points[i].y;
     }
     return Math.abs(area / 2);
+  };
+
+  // ==================== 도형 내부/외부 검사 함수들 ====================
+  /**
+   * 점이 폴리곤 내부에 있는지 판단 (Ray Casting 알고리즘)
+   */
+  const isPointInPolygon = (point, polygon) => {
+    if (polygon.length < 3) return false;
+    
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
+          (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  };
+
+  /**
+   * 점이 원 내부에 있는지 판단
+   */
+  const isPointInCircle = (point, center, radius) => {
+    const distance = Math.sqrt(
+      Math.pow(point.x - center.x, 2) + Math.pow(point.y - center.y, 2)
+    );
+    return distance <= radius;
+  };
+
+  /**
+   * DXF 엔터티들로부터 닫힌 영역들 추출
+   */
+  const getClosedAreas = () => {
+    if (!dxfData || !dxfData.entities) {
+      console.log('❌ DXF 데이터가 없습니다.');
+      return [];
+    }
+    
+    console.log('🔍 DXF 엔터티 분석 시작...');
+    console.log('📊 총 엔터티 수:', dxfData.entities.length);
+    
+    const closedAreas = [];
+    
+    dxfData.entities.forEach((entity, index) => {
+      console.log(`엔터티 ${index}:`, entity.type, entity);
+      
+      switch (entity.type) {
+        case "CIRCLE":
+          if (entity.center && entity.radius) {
+            console.log(`✅ 원 발견: 중심(${entity.center.x}, ${entity.center.y}), 반지름: ${entity.radius}`);
+            closedAreas.push({
+              type: 'circle',
+              center: entity.center,
+              radius: entity.radius
+            });
+          }
+          break;
+          
+        case "POLYLINE":
+        case "LWPOLYLINE":
+          console.log(`폴리라인 발견: shape=${entity.shape}, vertices=${entity.vertices?.length}개`);
+          if (entity.vertices && entity.vertices.length >= 3) {
+            // 닫힌 폴리라인 검사: shape 속성 또는 첫/마지막 점이 같은 경우
+            const isClosedByShape = entity.shape;
+            const isClosedByVertices = entity.vertices.length > 3 && 
+              Math.abs(entity.vertices[0].x - entity.vertices[entity.vertices.length - 1].x) < 0.01 &&
+              Math.abs(entity.vertices[0].y - entity.vertices[entity.vertices.length - 1].y) < 0.01;
+            
+            if (isClosedByShape || isClosedByVertices) {
+              // 마지막 중복 점 제거
+              const vertices = isClosedByVertices ? 
+                entity.vertices.slice(0, -1) : entity.vertices;
+              console.log(`✅ 닫힌 폴리라인 추가 (shape: ${isClosedByShape}, vertices: ${isClosedByVertices}):`, vertices);
+              closedAreas.push({
+                type: 'polygon',
+                vertices: vertices
+              });
+            } else {
+              console.log(`❌ 열린 폴리라인`);
+            }
+          } else {
+            console.log(`❌ 점이 부족함`);
+          }
+          break;
+          
+        default:
+          console.log(`⚠️ 지원하지 않는 엔터티: ${entity.type}`);
+      }
+    });
+    
+    // 개별 LINE 엔터티들로 구성된 닫힌 영역 찾기 추가
+    const lineEntities = dxfData.entities.filter(entity => entity.type === 'LINE');
+    if (lineEntities.length >= 3) {
+      console.log(`🔍 LINE 엔터티 ${lineEntities.length}개로 닫힌 영역 찾기 시도...`);
+      const connectedPolygon = findConnectedPolygon(lineEntities);
+      if (connectedPolygon) {
+        console.log(`✅ 연결된 폴리곤 발견:`, connectedPolygon);
+        closedAreas.push({
+          type: 'polygon',
+          vertices: connectedPolygon
+        });
+      }
+    }
+    
+    console.log(`🎯 최종 닫힌 영역 수: ${closedAreas.length}개`);
+    return closedAreas;
+  };
+
+  /**
+   * 클릭한 점이 어떤 닫힌 영역 내부에 있는지 검사
+   */
+  const isClickInsideClosedArea = (clickPoint) => {
+    console.log(`🖱️ 클릭 지점 검사: (${clickPoint.x.toFixed(2)}, ${clickPoint.y.toFixed(2)})`);
+    
+    const closedAreas = getClosedAreas();
+    
+    if (closedAreas.length === 0) {
+      console.log('❌ 닫힌 영역이 없어서 모든 클릭 거부');
+      return false; // 닫힌 영역이 없으면 모든 클릭 거부
+    }
+    
+    for (let i = 0; i < closedAreas.length; i++) {
+      const area = closedAreas[i];
+      console.log(`영역 ${i} 검사 (${area.type}):`, area);
+      
+      if (area.type === 'circle') {
+        const isInside = isPointInCircle(clickPoint, area.center, area.radius);
+        console.log(`원 내부 검사 결과: ${isInside}`);
+        if (isInside) {
+          console.log('✅ 원 내부에 있음 - 클릭 허용');
+          return true;
+        }
+      } else if (area.type === 'polygon') {
+        const isInside = isPointInPolygon(clickPoint, area.vertices);
+        console.log(`폴리곤 내부 검사 결과: ${isInside}`);
+        if (isInside) {
+          console.log('✅ 폴리곤 내부에 있음 - 클릭 허용');
+          return true;
+        }
+      }
+    }
+    
+    console.log('❌ 모든 닫힌 영역 외부 - 클릭 거부');
+    return false;
   };
 
   /**
@@ -137,15 +282,43 @@ const AreaDrawing = ({
    * 마우스 클릭 이벤트 처리
    */
   const handleCanvasClick = (event) => {
-    if (!isPenMode) return;
+    console.log('🖱️ 클릭 이벤트 시작');
+    
+    if (!isPenMode) {
+      console.log('❌ 펜 모드가 아님 - 클릭 무시');
+      return;
+    }
 
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.log('❌ Canvas가 없음');
+      return;
+    }
 
     const rect = canvas.getBoundingClientRect();
     const canvasX = event.clientX - rect.left;
     const canvasY = event.clientY - rect.top;
     const worldCoord = canvasToWorldCoord(canvasX, canvasY);
+
+    console.log(`🖱️ 클릭 이벤트: Canvas(${canvasX}, ${canvasY}) -> World(${worldCoord.x.toFixed(2)}, ${worldCoord.y.toFixed(2)})`);
+
+    // 클릭한 지점이 닫힌 영역 내부에 있는지 검사
+    let isInsideValid = false;
+    try {
+      console.log('🔍 유효성 검사 시작...');
+      isInsideValid = isClickInsideClosedArea(worldCoord);
+      console.log(`🎯 클릭 유효성 검사 결과: ${isInsideValid}`);
+    } catch (error) {
+      console.error('❌ 유효성 검사 중 에러 발생:', error);
+      isInsideValid = false;
+    }
+    
+    if (!isInsideValid) {
+      console.log('❌ 클릭 지점이 유효한 영역 외부입니다. 클릭 무시.');
+      return;
+    }
+
+    console.log('✅ 유효한 영역 내부 클릭 - 점 추가 진행');
 
     // 첫 번째 점 근처를 클릭했고, 이미 3개 이상의 점이 있으면 구역 완성
     if (clickedPoints.length >= 3 && checkCloseToFirstPoint(worldCoord, clickedPoints)) {
