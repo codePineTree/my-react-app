@@ -141,6 +141,49 @@ const AreaDrawing = ({
           }
           break;
           
+        case "ARC":
+          if (entity.center && entity.radius) {
+            // ARC의 시작각과 끝각 확인 (다양한 속성명 시도)
+            const startAngle = entity.startAngle || entity.startAngle || entity['50'] || 0;
+            const endAngle = entity.endAngle || entity.endAngle || entity['51'] || 360;
+            
+            console.log(`ARC 발견: 중심(${entity.center.x}, ${entity.center.y}), 반지름: ${entity.radius}, 각도: ${startAngle}~${endAngle}`);
+            console.log(`ARC 엔터티 전체:`, entity);
+            
+            // 각도 차이 계산
+            let angleDiff = Math.abs(endAngle - startAngle);
+            let originalAngleDiff = angleDiff;
+            
+            // 라디안을 도로 변환 (2π ≈ 6.28은 360도)
+            if (angleDiff > 7) { // 7 이상이면 라디안으로 판단
+              angleDiff = angleDiff * (180 / Math.PI); // 라디안을 도로 변환
+              console.log(`라디안을 도로 변환: ${originalAngleDiff.toFixed(4)} 라디안 → ${angleDiff.toFixed(2)}도`);
+            } else if (angleDiff > 6 && angleDiff < 7) { // 6~7 사이는 2π 라디안 (360도)
+              angleDiff = 360;
+              console.log(`2π 라디안 감지: ${originalAngleDiff.toFixed(4)} → 360도로 처리`);
+            }
+            
+            // 완전한 원인지 확인
+            const isFullCircle = angleDiff >= 359 || angleDiff === 0 || 
+                               (startAngle === 0 && endAngle >= 359) ||
+                               Math.abs(angleDiff - 360) < 1 || // 359~361도 범위
+                               (originalAngleDiff > 6.2 && originalAngleDiff < 6.3); // 2π 라디안 직접 체크
+            
+            console.log(`각도 차이: ${angleDiff.toFixed(2)}도 (원본: ${originalAngleDiff.toFixed(4)}), 완전한 원 여부: ${isFullCircle}`);
+            
+            if (isFullCircle) {
+              console.log(`✅ 완전한 원형 ARC 추가`);
+              closedAreas.push({
+                type: 'circle',
+                center: entity.center,
+                radius: entity.radius
+              });
+            } else {
+              console.log(`❌ 부분 호(Arc) - 닫힌 영역 아님 (${startAngle}°~${endAngle}°, 차이: ${angleDiff.toFixed(2)}°)`);
+            }
+          }
+          break;
+          
         case "POLYLINE":
         case "LWPOLYLINE":
           console.log(`폴리라인 발견: shape=${entity.shape}, vertices=${entity.vertices?.length}개`);
