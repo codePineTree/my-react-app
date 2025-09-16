@@ -33,6 +33,9 @@ const CADDisplay = ({ cadFilePath }) => {
   // 현재 모델 ID (파일명에서 추출)
   const [currentModelId, setCurrentModelId] = useState(null);
 
+  // ==================== 완성된 구역들 상태 (새로 추가) ====================
+  const [completedAreas, setCompletedAreas] = useState([]);
+
   const MAX_RETRIES = 15;
   const RETRY_DELAY = 3000;
 
@@ -472,6 +475,13 @@ const CADDisplay = ({ cadFilePath }) => {
   const handleAreaComplete = (coordinates) => {
     console.log('CADDisplay: 구역 그리기 완료됨', coordinates);
     
+    // 완성된 구역을 상태에 추가
+    setCompletedAreas(prev => {
+      const updated = [...prev, coordinates];
+      console.log('완성된 구역 업데이트:', updated.length, '개');
+      return updated;
+    });
+    
     // AreaManager에게 새 구역 추가 요청
     if (areaManagerRef.current) {
       areaManagerRef.current.addArea(coordinates);
@@ -483,11 +493,14 @@ const CADDisplay = ({ cadFilePath }) => {
 
   /**
    * 구역 변경 콜백
-   * AreaManager에서 호출됨
+   * AreaManager에서 호출됨 (구역 삭제 등)
    */
   const handleAreasChange = (areas) => {
     console.log('CADDisplay: 구역 데이터 변경됨', areas.length, '개');
-    // 필요시 추가 처리 (예: 왼쪽 리스트 업데이트)
+    
+    // AreaManager의 구역 데이터로 completedAreas 동기화
+    const coordinates = areas.map(area => area.coordinates);
+    setCompletedAreas(coordinates);
   };
 
   // ==================== 초기화 ====================
@@ -544,6 +557,7 @@ const CADDisplay = ({ cadFilePath }) => {
             scale={scale}
             offset={offset}
             onAreaComplete={handleAreaComplete}
+            completedAreas={completedAreas} // 🎯 완성된 구역들 전달
           />
 
           {/* 구역 관리 컴포넌트 */}
@@ -555,6 +569,7 @@ const CADDisplay = ({ cadFilePath }) => {
             offset={offset}
             onAreasChange={handleAreasChange}
             isDeleteMode={isDeleteMode}
+            isPenMode={isPenMode} 
           />
 
           {/* 로딩 표시 */}

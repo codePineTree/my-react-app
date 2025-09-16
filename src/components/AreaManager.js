@@ -16,7 +16,8 @@ const AreaManager = forwardRef(({
   scale,            // 현재 줌 배율
   offset,           // 현재 팬 오프셋
   onAreasChange,    // 구역 변경 시 호출할 콜백 (부모에게 알림)
-  isDeleteMode      // 지우개 모드 활성화 여부
+  isDeleteMode,     // 지우개 모드 활성화 여부
+  isPenMode         // 펜 모드 활성화 여부 (새로 추가)
 }, ref) => {
 
   // ==================== 상태 관리 ====================
@@ -81,8 +82,15 @@ const AreaManager = forwardRef(({
   /**
    * Canvas 클릭 이벤트 처리
    * 지우개 모드일 때는 구역 삭제, 일반 모드일 때는 구역 선택
+   * 펜 모드일 때는 무시
    */
   const handleCanvasClick = (event) => {
+    // 펜 모드일 때는 구역 클릭 이벤트 무시
+    if (isPenMode) {
+      console.log('펜 모드 활성화 중 - 구역 클릭 무시');
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -244,7 +252,7 @@ const AreaManager = forwardRef(({
     return () => {
       canvas.removeEventListener('click', handleCanvasClick);
     };
-  }, [savedAreas, isDeleteMode, scale, offset]);
+  }, [savedAreas, isDeleteMode, isPenMode, scale, offset]); // isPenMode 의존성 추가
 
   // 줌/팬 변경 시 구역 다시 렌더링
   useEffect(() => {
@@ -357,7 +365,7 @@ const AreaManager = forwardRef(({
       {savedAreas.length > 0 && (
         <div style={{
           position: 'absolute',
-          top: '10px',
+          bottom: '10px',
           right: '10px',
           background: 'rgba(0, 123, 255, 0.1)',
           color: '#1976D2',

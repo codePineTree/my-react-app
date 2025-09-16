@@ -16,7 +16,8 @@ const AreaDrawing = ({
   dxfData,        // DXF 도면 데이터 (필요시 참조)
   scale,          // 현재 줌 배율
   offset,         // 현재 팬 오프셋
-  onAreaComplete  // 구역 완성 시 호출할 콜백 함수
+  onAreaComplete, // 구역 완성 시 호출할 콜백 함수
+  completedAreas = [] // 이미 완성된 구역들 배열 (새로 추가)
 }) => {
   
   // ==================== 상태 관리 ====================
@@ -240,6 +241,20 @@ const AreaDrawing = ({
   const isClickInsideClosedArea = (clickPoint) => {
     console.log(`🖱️ 클릭 지점 검사: (${clickPoint.x.toFixed(2)}, ${clickPoint.y.toFixed(2)})`);
     
+    // 1단계: 이미 완성된 구역들 내부인지 검사
+    if (completedAreas && completedAreas.length > 0) {
+      console.log(`🚫 완성된 구역 ${completedAreas.length}개 검사 중...`);
+      for (let i = 0; i < completedAreas.length; i++) {
+        const completedArea = completedAreas[i];
+        if (isPointInPolygon(clickPoint, completedArea)) {
+          console.log(`❌ 이미 완성된 구역 ${i} 내부입니다 - 클릭 거부`);
+          return false;
+        }
+      }
+      console.log(`✅ 완성된 구역들 외부 - 계속 검사`);
+    }
+    
+    // 2단계: DXF 닫힌 영역 내부인지 검사
     const closedAreas = getClosedAreas();
     
     if (closedAreas.length === 0) {
@@ -500,6 +515,7 @@ const AreaDrawing = ({
         }}>
           <div><strong>구역 그리기 모드</strong></div>
           <div>• 닫힌 도형 내부만 클릭 가능</div>
+          <div>• 완성된 구역({completedAreas?.length || 0}개) 내부는 클릭 불가</div>
           <div>• 클릭: 점 추가 ({clickedPoints.length}개)</div>
           <div>• 첫 번째 점 근처 클릭: 구역 완성</div>
           <div>• ESC: 취소</div>
