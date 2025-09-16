@@ -498,6 +498,14 @@ const AreaDrawing = ({
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, [isPenMode]);
 
+  // ==================== 펜 모드 해제 시 점들 초기화 ====================
+  useEffect(() => {
+    if (!isPenMode && clickedPoints.length > 0) {
+      console.log('펜 모드 해제 - 클릭된 점들 초기화');
+      setClickedPoints([]);
+    }
+  }, [isPenMode]);
+
   // ==================== 사용법 안내 UI ====================
   return (
     <>
