@@ -537,6 +537,34 @@ const CADDisplay = ({ cadFilePath, onSave }) => {
           </button>
         </div>
 
+        {/* 저장 버튼 - 캔버스 오른쪽 하단 흰색 영역에 배치 */}
+        {onSave && (
+          <button 
+            onClick={onSave}
+            style={{
+              position: 'absolute',
+              bottom: '60px',
+              right: '50px',
+              background: '#1976D2',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'background-color 0.3s',
+              zIndex: 20
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#1565C0'}
+            onMouseLeave={(e) => e.target.style.background = '#1976D2'}
+            title="저장"
+          >
+            저장
+          </button>
+        )}
+
         {/* 메인 캔버스 영역 */}
         <div className="cad-canvas" style={{ position: "relative" }}>
           <canvas
@@ -557,7 +585,7 @@ const CADDisplay = ({ cadFilePath, onSave }) => {
             scale={scale}
             offset={offset}
             onAreaComplete={handleAreaComplete}
-            completedAreas={completedAreas} // 🎯 완성된 구역들 전달
+            completedAreas={completedAreas}
           />
 
           {/* 구역 관리 컴포넌트 */}
@@ -571,34 +599,6 @@ const CADDisplay = ({ cadFilePath, onSave }) => {
             isDeleteMode={isDeleteMode}
             isPenMode={isPenMode} 
           />
-
-          {/* 저장 버튼 */}
-          {onSave && (
-            <button 
-              onClick={onSave}
-              style={{
-                position: 'absolute',
-                bottom: '20px',
-                right: '20px',
-                background: '#1976D2',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                transition: 'background-color 0.3s',
-                zIndex: 20
-              }}
-              onMouseEnter={(e) => e.target.style.background = '#1565C0'}
-              onMouseLeave={(e) => e.target.style.background = '#1976D2'}
-              title="저장"
-            >
-              저장
-            </button>
-          )}
 
           {/* 로딩 표시 */}
           {loading && (
