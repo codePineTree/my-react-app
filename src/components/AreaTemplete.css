@@ -313,4 +313,52 @@
   max-width: 70%; /* PropertyPanel이 있었을 때의 크기와 비슷하게 */
   height: 100%;
 }  
+/* 에러 표시 */
+.cad-error-display {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(255,0,0,0.1);
+  color: red;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  max-width: 300px;
+}
+
+/* 펜 모드 안내 */
+.pen-mode-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255,255,0,0.9);
+  color: #333;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 13px;
+  border: 2px solid #ff4444;
+  font-weight: bold;
+}
+
+/* 저장 버튼 - CAD 영역용 */
+.cad-save-button {
+  position: absolute;
+  bottom: 60px;
+  right: 50px;
+  background: #1976D2;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: background-color 0.3s;
+  z-index: 20;
+}
+
+.cad-save-button:hover {
+  background: #1565C0;
+}
 }
