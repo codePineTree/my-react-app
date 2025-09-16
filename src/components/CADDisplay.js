@@ -12,7 +12,7 @@ import AreaManager from "./AreaManager";
  * 3. 펜 모드 및 지우개 모드 상태 관리
  * 4. AreaDrawing과 AreaManager 컴포넌트들을 조율하는 컨트롤러 역할
  */
-const CADDisplay = ({ cadFilePath }) => {
+const CADDisplay = ({ cadFilePath, onSave }) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null); // AreaManager 참조용
   
@@ -572,6 +572,34 @@ const CADDisplay = ({ cadFilePath }) => {
             isPenMode={isPenMode} 
           />
 
+          {/* 저장 버튼 */}
+          {onSave && (
+            <button 
+              onClick={onSave}
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                right: '20px',
+                background: '#1976D2',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                transition: 'background-color 0.3s',
+                zIndex: 20
+              }}
+              onMouseEnter={(e) => e.target.style.background = '#1565C0'}
+              onMouseLeave={(e) => e.target.style.background = '#1976D2'}
+              title="저장"
+            >
+              저장
+            </button>
+          )}
+
           {/* 로딩 표시 */}
           {loading && (
             <div style={{
@@ -604,7 +632,7 @@ const CADDisplay = ({ cadFilePath }) => {
               border: "2px solid #ff4444",
               fontWeight: "bold"
             }}>
-              🖊️ 구역 그리기 모드 활성화
+              🖊️구역 그리기 모드 활성화
             </div>
           )}
         </div>

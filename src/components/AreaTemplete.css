@@ -308,4 +308,9 @@
     flex-direction: row;
     margin-bottom: 10px;
   }
+.cad-container {
+  flex: 2; /* 또는 원하는 비율 */
+  max-width: 70%; /* PropertyPanel이 있었을 때의 크기와 비슷하게 */
+  height: 100%;
+}  
 }

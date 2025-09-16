@@ -4,7 +4,6 @@ import './components/AreaTemplete.css';
 import Navigation from './components/Navigation';
 import Sidebar from './components/Sidebar';
 import CADDisplay from './components/CADDisplay';
-import PropertyPanel from './components/PropertyPanel';
 import DomainManagement from './components/DomainManagement';
 
 const App = () => {
@@ -12,9 +11,6 @@ const App = () => {
   
   const [activeTab, setActiveTab] = useState('도면관리');
   const [selectedArea, setSelectedArea] = useState('구역명 2');
-  const [areaName, setAreaName] = useState('구역명 2');
-  const [usage, setUsage] = useState('');
-  const [operation, setOperation] = useState('자동/수동 업력');
 
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
@@ -138,10 +134,7 @@ const App = () => {
 
   const handleAreaSelect = (area) => {
     setSelectedArea(area);
-    setAreaName(area);
   };
-
-  const handleSave = () => alert('저장되었습니다.');
 
   // ------------------ 탭별 렌더링 ------------------
   const renderContent = () => {
@@ -156,17 +149,13 @@ const App = () => {
               selectedArea={selectedArea}
               handleAreaSelect={handleAreaSelect}
             />
-            <main className="main-area">
-              <CADDisplay cadFilePath={cadFilePath} cadFileType={cadFileType} />
-              <PropertyPanel
-                areaName={areaName}
-                setAreaName={setAreaName}
-                usage={usage}
-                setUsage={setUsage}
-                operation={operation}
-                setOperation={setOperation}
-                handleSave={handleSave}
+            <main className="main-area" style={{flexDirection: 'column', gap: '20px'}}>
+              <CADDisplay 
+                cadFilePath={cadFilePath} 
+                cadFileType={cadFileType}
+                onSave={() => alert('저장되었습니다.')}
               />
+              <div style={{height: '100px'}}></div>
             </main>
           </>
         );
