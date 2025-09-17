@@ -182,6 +182,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
   const handleDomainDoubleClick = async (domain) => {
     console.log('DomainManagement: 도메인 더블클릭 시작');
     console.log('파일 경로:', domain.FILE_PATH);
+    console.log('MODEL_ID:', domain.MODEL_ID); // 🔍 MODEL_ID 확인용 로그 추가
     
     if (!domain.FILE_PATH) {
       alert('파일 경로가 없습니다.');
@@ -195,6 +196,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       sessionStorage.setItem('conversionRequested', 'true');
       sessionStorage.setItem('conversionFile', domain.FILE_PATH);
       sessionStorage.setItem('conversionSource', 'dwf_conversion'); // 변환 소스 명시
+      sessionStorage.setItem('conversionModelId', domain.MODEL_ID); // ✅ MODEL_ID도 저장
 
       try {
         console.log('DWF 변환 시작:', domain.FILE_PATH);
@@ -214,6 +216,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
           sessionStorage.removeItem('conversionRequested');
           sessionStorage.removeItem('conversionFile');
           sessionStorage.removeItem('conversionSource');
+          sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID도 제거
           return;
         }
 
@@ -225,6 +228,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
           sessionStorage.removeItem('conversionRequested');
           sessionStorage.removeItem('conversionFile');
           sessionStorage.removeItem('conversionSource');
+          sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID도 제거
           return;
         }
 
@@ -236,9 +240,10 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         // App.js에 전달할 데이터 설정
         finalData = {
           ...domain,
-          cadFilePath: blobUrl,  // 변환된 Blob URL
-          fileType: 'dxf',       // DXF로 처리
-          isConverted: true      // 변환된 파일임을 표시
+          MODEL_ID: domain.MODEL_ID,    // ✅ MODEL_ID 명시적으로 포함
+          cadFilePath: blobUrl,         // 변환된 Blob URL
+          fileType: 'dxf',              // DXF로 처리
+          isConverted: true             // 변환된 파일임을 표시
         };
 
       } catch (e) {
@@ -248,6 +253,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
         sessionStorage.removeItem('conversionSource');
+        sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID도 제거
         return;
       }
     } else {
@@ -256,7 +262,8 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       
       finalData = {
         ...domain,
-        cadFilePath: domain.FILE_PATH,  // 원본 파일명
+        MODEL_ID: domain.MODEL_ID,    // ✅ MODEL_ID 명시적으로 포함
+        cadFilePath: domain.FILE_PATH, // 원본 파일명
         fileType: 'dxf',
         isConverted: false
       };
@@ -264,6 +271,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
 
     // App.js로 최종 데이터 전달
     console.log('App.js로 전달할 데이터:', finalData);
+    console.log('전달되는 MODEL_ID:', finalData.MODEL_ID); // 🔍 MODEL_ID 확인용 로그
     onDomainDoubleClick(finalData);
   };
 
