@@ -26,6 +26,13 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     if (modelId) setCurrentModelId(modelId);
   }, [modelId]);
 
+  // ==================== 저장된 구역 데이터 로드 ====================
+  useEffect(() => {
+    if (currentModelId) {
+      loadSavedAreas(currentModelId);
+    }
+  }, [currentModelId]);
+
   // ==================== DXF 렌더링 함수 ====================
   const renderEntity = (ctx, entity) => {
     ctx.strokeStyle = "#333333";
@@ -207,6 +214,53 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     return { x:(canvasWidth-scaledWidth)/2-bounds.minX*scale, y:canvasHeight-(canvasHeight-scaledHeight)/2+bounds.minY*scale };
   };
 
+  // ==================== 저장된 구역 데이터 로드 ====================
+  const loadSavedAreas = async (modelId) => {
+    try {
+      console.log('🔍 저장된 구역 데이터 로드 시작:', modelId);
+      
+      const response = await fetch(`http://localhost:8080/api/cad/area/list/${modelId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📋 서버 응답:', result);
+        
+        if (result.success && result.areas && result.areas.length > 0) {
+          // 서버에서 받은 데이터를 completedAreas 형태로 변환
+          const loadedAreas = result.areas.map(area => 
+            area.coordinates
+              .sort((a, b) => a.pointOrder - b.pointOrder) // pointOrder 순서로 정렬
+              .map(coord => ({ x: coord.x, y: coord.y }))
+          );
+          
+          setCompletedAreas(loadedAreas);
+          
+          // AreaManager에도 로드된 구역 전달
+          if (areaManagerRef.current) {
+            loadedAreas.forEach(coordinates => {
+              areaManagerRef.current.addArea(coordinates);
+            });
+          }
+          
+          console.log(`✅ 구역 데이터 로드 완료: ${loadedAreas.length}개 구역`);
+        } else {
+          console.log('📭 저장된 구역 데이터 없음');
+        }
+      } else if (response.status === 404) {
+        console.log('📭 해당 모델의 구역 데이터 없음');
+      } else {
+        console.error('❌ 구역 데이터 로드 실패:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ 구역 데이터 로드 중 오류:', error);
+    }
+  };
+
   // ==================== 마우스 이벤트 ====================
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -262,20 +316,98 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
   const handleAreaComplete=(coordinates)=>{ setCompletedAreas(prev=>[...prev,coordinates]); if(areaManagerRef.current) areaManagerRef.current.addArea(coordinates); };
   const handleAreasChange=(areas)=>{ setCompletedAreas(areas.map(a=>a.coordinates)); };
 
-  // ==================== 저장 시 콘솔 JSON 출력 ====================
-  const handleSaveJSON=()=>{
-    const jsonData = {
-      modelId: currentModelId,
-      areas: completedAreas.map((coords, idx)=>({
-        areaIndex: idx,
-        coordinates: coords.map((pt, order)=>({
-          pointOrder: order,
-          x: pt.x,
-          y: pt.y
-        }))
-      }))
-    };
-    console.log("🔖 저장 데이터(JSON):", JSON.stringify(jsonData, null, 2));
+  // ==================== 저장 시 서버 API 호출 ====================
+  const handleSaveJSON = async () => {
+    console.log("🔥 저장 버튼 호출됨!");
+    
+    if (!currentModelId) {
+      alert('모델 ID가 없습니다. 저장할 수 없습니다.');
+      console.log("❌ 모델 ID 없음:", currentModelId);
+      return;
+    }
+
+    if (completedAreas.length === 0) {
+      alert('저장할 구역이 없습니다.');
+      console.log("❌ 완료된 구역 없음");
+      return;
+    }
+
+    // 각 구역을 개별적으로 저장
+    console.log(`📝 총 ${completedAreas.length}개 구역 저장 시작`);
+    
+    try {
+      let savedCount = 0;
+      
+      for (let areaIndex = 0; areaIndex < completedAreas.length; areaIndex++) {
+        const coordinates = completedAreas[areaIndex];
+        
+        // 면적 계산 (Shoelace 공식)
+        const calculateArea = (coords) => {
+          if (coords.length < 3) return 0.0;
+          let area = 0.0;
+          const n = coords.length;
+          for (let i = 0; i < n; i++) {
+            const j = (i + 1) % n;
+            area += coords[i].x * coords[j].y;
+            area -= coords[j].x * coords[i].y;
+          }
+          return Math.abs(area / 2.0);
+        };
+
+        // 서버 API에 맞는 데이터 구조로 변환
+        const areaData = {
+          modelId: currentModelId || "UNKNOWN",
+          areaNm: `구역_${areaIndex + 1}`,
+          areaDesc: `구역 ${areaIndex + 1} 설명`,
+          areaColor: "#FF0000", 
+          areaSize: Math.round(calculateArea(coordinates)), // 정수로 변환
+          areaStyle: "SOLID",
+          coordinates: coordinates.map((pt, order) => ({
+            pointOrder: order + 1,
+            x: Math.round(pt.x * 1000) / 1000,
+            y: Math.round(pt.y * 1000) / 1000
+          }))
+        };
+
+        console.log(`📤 구역 ${areaIndex + 1} 저장 데이터:`, JSON.stringify(areaData, null, 2));
+
+        // 서버에 개별 구역 저장
+        const response = await fetch('http://localhost:8080/api/cad/area/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(areaData)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`✅ 구역 ${areaIndex + 1} 저장 성공:`, result);
+          savedCount++;
+        } else {
+          const errorText = await response.text();
+          console.error(`❌ 구역 ${areaIndex + 1} 저장 실패:`, response.status, errorText);
+          alert(`구역 ${areaIndex + 1} 저장 실패: ${response.status}`);
+        }
+      }
+
+      if (savedCount === completedAreas.length) {
+        console.log(`🎉 모든 구역 저장 완료! (${savedCount}/${completedAreas.length})`);
+        alert(`구역 정보가 성공적으로 저장되었습니다! (${savedCount}개 구역)`);
+        
+        // onSave 콜백도 호출 (App.js에서 전달된 함수)
+        if (onSave) {
+          onSave({ savedCount, totalAreas: completedAreas.length });
+        }
+      } else {
+        console.log(`⚠️ 일부 구역만 저장됨: ${savedCount}/${completedAreas.length}`);
+        alert(`일부 구역만 저장되었습니다: ${savedCount}/${completedAreas.length}`);
+      }
+
+    } catch (error) {
+      console.error('❌ 저장 중 오류:', error);
+      alert('저장 중 오류가 발생했습니다: ' + error.message);
+    }
   };
 
   useEffect(()=>{ if(cadFilePath) loadFile(cadFilePath); }, [cadFilePath]);
