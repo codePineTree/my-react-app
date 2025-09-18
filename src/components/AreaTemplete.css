@@ -170,6 +170,17 @@
   background: #f0f0f0;
 }
 
+/* 지우개 버튼 활성화 상태 - 파란색 */
+.tool-button.eraser-button.active {
+  background: #4dabf7 !important;
+  color: white !important;
+  border: none !important;
+}
+
+.tool-button.eraser-button.active:hover {
+  background: #339af0 !important;
+}
+
 /* 돋보기 버튼 스타일 */
 .tool-button.magnifier {
   background: white;
