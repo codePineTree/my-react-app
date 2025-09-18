@@ -257,8 +257,17 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     } 
   };
 
-  const handleAreaComplete = (coordinates) => { setCompletedAreas(prev => [...prev, coordinates]); if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates); };
-  const handleAreasChange = (areas) => { setCompletedAreas(areas.map(a => a.coordinates)); };
+  const handleAreaComplete = (coordinates) => { 
+    setCompletedAreas(prev => [...prev, coordinates]); 
+    if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates); 
+  };
+
+  // ✅ 수정: AreaManager의 활성 구역 상태와 동기화
+  const handleAreasChange = (areas) => { 
+    console.log('🔄 구역 변경 감지:', areas.length);
+    // AreaManager에서 받은 활성 구역들을 completedAreas에 반영
+    setCompletedAreas(areas.map(a => a.coordinates));
+  };
 
   // ==================== 저장 시 서버 API 호출 ====================
   const handleSaveJSON = async () => {

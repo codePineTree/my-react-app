@@ -83,35 +83,55 @@ const AreaManager = forwardRef(({
         if (result.success) {
           console.log(`✅ DB에서 구역 삭제 성공: ${areaId}`);
           // 로컬에서도 제거
-          setSavedAreas(prev => prev.filter(area => area.areaId !== areaId));
+          setSavedAreas(prev => {
+            const newAreas = prev.filter(area => area.areaId !== areaId);
+            // ✅ 상위 컴포넌트에 변경사항 알림 (활성 구역만)
+            const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
+            if (onAreasChange) onAreasChange(activeAreas);
+            return newAreas;
+          });
         } else {
           console.error(`❌ DB 삭제 실패:`, result.message);
           // DB 삭제 실패시에도 로컬에서는 삭제 상태로 표시
-          setSavedAreas(prev => 
-            prev.map(area => 
+          setSavedAreas(prev => {
+            const newAreas = prev.map(area => 
               area.areaId === areaId 
                 ? { ...area, drawingStatus: 'D' } 
                 : area
-            )
-          );
+            );
+            // ✅ 상위 컴포넌트에 변경사항 알림 (활성 구역만)
+            const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
+            if (onAreasChange) onAreasChange(activeAreas);
+            return newAreas;
+          });
         }
       } catch (error) {
         console.error(`❌ DB 삭제 중 오류:`, error);
         // 네트워크 오류시에도 로컬에서는 삭제 상태로 표시
-        setSavedAreas(prev => 
-          prev.map(area => 
+        setSavedAreas(prev => {
+          const newAreas = prev.map(area => 
             area.areaId === areaId 
               ? { ...area, drawingStatus: 'D' } 
               : area
-          )
-        );
+          );
+          // ✅ 상위 컴포넌트에 변경사항 알림 (활성 구역만)
+          const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
+          if (onAreasChange) onAreasChange(activeAreas);
+          return newAreas;
+        });
       }
     } 
     // 케이스 2: 저장 전 임시 구역 (temp_로 시작하는 ID)
     else if (areaToDelete.areaId.startsWith('temp_')) {
       console.log(`🗑️ 임시 구역 로컬 삭제: ${areaId}`);
       // 로컬에서만 완전히 제거 (DB 호출 불필요)
-      setSavedAreas(prev => prev.filter(area => area.areaId !== areaId));
+      setSavedAreas(prev => {
+        const newAreas = prev.filter(area => area.areaId !== areaId);
+        // ✅ 상위 컴포넌트에 변경사항 알림 (활성 구역만)
+        const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
+        if (onAreasChange) onAreasChange(activeAreas);
+        return newAreas;
+      });
     }
 
     return true;
