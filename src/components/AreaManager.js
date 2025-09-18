@@ -2,13 +2,13 @@ import React, { useState, useEffect, useImperativeHandle, forwardRef } from "rea
 
 /**
  * AreaManager 컴포넌트 
- * 역할: 생성된 구역들의 로컬 상태 관리 (DB 연동 없음)
+ * 역할: 생성된 구역들의 로컬 상태 관리 및 AREA_ID 기준 삭제
  * 
  * 주요 기능:
  * 1. 로컬 구역들의 상태 관리
  * 2. 구역 클릭 감지 및 속성 폼 표시
- * 3. 구역 삭제 처리 (로컬에서만)
- * 4. 저장된 구역들을 Canvas에 렌더링
+ * 3. AREA_ID 기준 구역 삭제 처리 (로컬 + DB)
+ * 4. 저장된 구역들을 Canvas에 렌더링 (CAD 모델 위에 오버레이)
  */
 const AreaManager = forwardRef(({ 
   canvasRef,
@@ -17,7 +17,8 @@ const AreaManager = forwardRef(({
   offset,
   onAreasChange,
   isDeleteMode,
-  isPenMode
+  isPenMode,
+  onRequestCADRedraw
 }, ref) => {
 
   const [savedAreas, setSavedAreas] = useState([]);
@@ -44,15 +45,74 @@ const AreaManager = forwardRef(({
   const findAreaByPoint = (worldCoord) => {
     for (let i = savedAreas.length - 1; i >= 0; i--) {
       const area = savedAreas[i];
-      if (area.coordinates && isPointInPolygon(worldCoord, area.coordinates)) {
+      if (area.coordinates && area.drawingStatus !== 'D' && isPointInPolygon(worldCoord, area.coordinates)) {
         return area;
       }
     }
     return null;
   };
 
-  const handleCanvasClick = (event) => {
-    if (isPenMode) return;
+  // ✅ AREA_ID 기준 삭제 처리 함수
+  const deleteAreaById = async (areaId) => {
+    const areaToDelete = savedAreas.find(area => area.areaId === areaId);
+    if (!areaToDelete) {
+      console.log(`❌ 삭제할 구역을 찾을 수 없음: ${areaId}`);
+      return false;
+    }
+
+    console.log(`🗑️ 구역 삭제 시작: ${areaId}`, areaToDelete);
+
+    // 케이스 1: 이미 DB에 저장된 구역 (실제 AREA_ID 존재)
+    if (areaToDelete.areaId && !areaToDelete.areaId.startsWith('temp_')) {
+      try {
+        // 서버에 삭제 요청
+        const response = await fetch(`http://localhost:8080/api/cad/area/delete/${areaToDelete.areaId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          console.log(`✅ DB에서 구역 삭제 성공: ${areaId}`);
+          // 로컬에서도 제거
+          setSavedAreas(prev => prev.filter(area => area.areaId !== areaId));
+        } else {
+          console.error(`❌ DB 삭제 실패: ${response.status}`);
+          // DB 삭제 실패시에도 로컬에서는 삭제 상태로 표시
+          setSavedAreas(prev => 
+            prev.map(area => 
+              area.areaId === areaId 
+                ? { ...area, drawingStatus: 'D' } 
+                : area
+            )
+          );
+        }
+      } catch (error) {
+        console.error(`❌ DB 삭제 중 오류:`, error);
+        // 네트워크 오류시에도 로컬에서는 삭제 상태로 표시
+        setSavedAreas(prev => 
+          prev.map(area => 
+            area.areaId === areaId 
+              ? { ...area, drawingStatus: 'D' } 
+              : area
+          )
+        );
+      }
+    } 
+    // 케이스 2: 저장 전 임시 구역 (temp_로 시작하는 ID)
+    else if (areaToDelete.areaId.startsWith('temp_')) {
+      console.log(`🗑️ 임시 구역 로컬 삭제: ${areaId}`);
+      // 로컬에서만 완전히 제거 (DB 호출 불필요)
+      setSavedAreas(prev => prev.filter(area => area.areaId !== areaId));
+    }
+
+    return true;
+  };
+
+  const handleCanvasClick = async (event) => {
+    // 팬모드이면서 지우개 모드가 아니면 클릭 무시
+    if (isPenMode && !isDeleteMode) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -70,7 +130,13 @@ const AreaManager = forwardRef(({
 
     if (clickedArea) {
       if (isDeleteMode) {
-        setSavedAreas(prev => prev.filter(area => area.areaId !== clickedArea.areaId));
+        console.log(`🗑️ 구역 삭제 요청: ${clickedArea.areaId}`);
+        
+        // 사용자 확인
+        const confirmed = window.confirm(`구역 "${clickedArea.areaName || clickedArea.areaId}"을(를) 삭제하시겠습니까?`);
+        if (confirmed) {
+          await deleteAreaById(clickedArea.areaId);
+        }
       } else {
         setSelectedArea(clickedArea);
         setShowPropertyForm(true);
@@ -81,23 +147,30 @@ const AreaManager = forwardRef(({
     }
   };
 
-  const renderSavedAreas = () => {
+  // ✅ 구역만 렌더링하는 함수 - CAD 모델은 건드리지 않음
+  const renderAreasOnly = () => {
     const canvas = canvasRef.current;
-    if (!canvas || savedAreas.length === 0) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    ctx.save();
+    
+    // 활성 구역만 필터링 (삭제되지 않은 구역만)
+    const activeAreas = savedAreas.filter(area => area.drawingStatus !== 'D');
 
-    savedAreas.forEach(area => {
-      if (!area.coordinates || area.coordinates.length < 3) return;
+    activeAreas.forEach((area) => {
+      if (!area.coordinates || area.coordinates.length < 3) {
+        return;
+      }
+
+      ctx.save();
 
       ctx.fillStyle = area.areaColor || '#CCCCCC';
       ctx.globalAlpha = 0.3;
       ctx.beginPath();
 
-      area.coordinates.forEach((point, index) => {
+      area.coordinates.forEach((point, pointIndex) => {
         const canvasCoord = worldToCanvasCoord(point);
-        if (index === 0) ctx.moveTo(canvasCoord.x, canvasCoord.y);
+        if (pointIndex === 0) ctx.moveTo(canvasCoord.x, canvasCoord.y);
         else ctx.lineTo(canvasCoord.x, canvasCoord.y);
       });
 
@@ -109,6 +182,7 @@ const AreaManager = forwardRef(({
       ctx.lineWidth = 2;
       ctx.stroke();
 
+      // 선택된 구역 강조 표시
       if (selectedArea && selectedArea.areaId === area.areaId) {
         ctx.strokeStyle = '#FF0000';
         ctx.lineWidth = 3;
@@ -116,12 +190,41 @@ const AreaManager = forwardRef(({
         ctx.stroke();
         ctx.setLineDash([]);
       }
-    });
 
-    ctx.restore();
+      ctx.restore();
+    });
+  };
+
+  // ✅ 전체 다시 그리기 (CAD + 구역)
+  const renderSavedAreas = () => {
+    // CAD 모델 먼저 렌더링
+    if (onRequestCADRedraw) {
+      onRequestCADRedraw();
+    }
+    
+    // 구역들을 CAD 모델 위에 그리기
+    requestAnimationFrame(() => {
+      renderAreasOnly();
+    });
   };
 
   useImperativeHandle(ref, () => ({
+    // ✅ 저장된 구역 추가 (DB에서 로드할 때 사용)
+    addSavedArea: (areaData) => {
+      const newArea = {
+        areaId: areaData.areaId, // 실제 DB의 AREA_ID
+        coordinates: areaData.coordinates,
+        areaName: areaData.areaName || `구역_${areaData.areaId}`,
+        areaDesc: areaData.areaDesc || '',
+        areaColor: areaData.areaColor || '#CCCCCC',
+        drawingStatus: 'U' // 기존 저장된 구역
+      };
+      
+      setSavedAreas(prev => [...prev, newArea]);
+      console.log('✅ 저장된 구역 추가:', newArea.areaId);
+    },
+
+    // ✅ 임시 구역 추가 (새로 그릴 때 사용)
     addArea: (coordinates) => {
       if (!coordinates || coordinates.length < 3) {
         alert('구역을 그리려면 최소 3개의 점이 필요합니다.');
@@ -129,37 +232,59 @@ const AreaManager = forwardRef(({
       }
 
       const newArea = {
-        areaId: `temp_${Date.now()}`,
+        areaId: `temp_${Date.now()}`, // 임시 ID
         coordinates: coordinates,
-        areaName: `구역_${savedAreas.length + 1}`,
+        areaName: `임시구역_${Date.now()}`,
         areaDesc: '',
         areaColor: '#CCCCCC',
         drawingStatus: 'I' // 새로 생성된 구역 상태
-
       };
 
       setSavedAreas(prev => [...prev, newArea]);
+      console.log('✅ 임시 구역 추가:', newArea.areaId);
+    },
+
+    // ✅ 특정 구역 삭제 (외부에서 호출 가능)
+    deleteArea: (areaId) => {
+      return deleteAreaById(areaId);
     },
 
     refreshAreas: () => {
       console.log('새로고침 요청 무시 (로컬 모드)');
     },
 
-    getSavedAreas: () => savedAreas,
+    getSavedAreas: () => savedAreas.filter(area => area.drawingStatus !== 'D'),
+
+    // ✅ 저장할 구역만 반환 (임시 구역 중 삭제되지 않은 것들)
+    getAreasToSave: () => {
+      return savedAreas.filter(area => 
+        area.drawingStatus === 'I' && // 새로 생성된 구역만
+        area.areaId.startsWith('temp_') // 임시 구역만
+      );
+    },
 
     saveAllAreasToDb: () => {
-      const newAreas = savedAreas.filter(area => area.RowStatus === 'I');
-      console.log(`${newAreas.length}개 구역 저장 예정 (API 호출)`);
-
-      setSavedAreas(prev => 
-        prev.map(area => area.RowStatus === 'I' ? { ...area, RowStatus: 'U' } : area)
+      const areasToSave = savedAreas.filter(area => 
+        area.drawingStatus === 'I' && 
+        area.areaId.startsWith('temp_')
       );
-
-      return true;
+      
+      console.log(`${areasToSave.length}개 구역 저장 예정 (API 호출)`);
+      return areasToSave;
     },
 
     clearTempAreas: () => {
-      setSavedAreas(prev => prev.filter(area => area.RowStatus !== 'I'));
+      setSavedAreas(prev => prev.filter(area => !area.areaId.startsWith('temp_')));
+    },
+
+    // ✅ 외부에서 구역만 다시 그리기 (CAD 모델 건드리지 않음)
+    redrawAreasOnly: () => {
+      renderAreasOnly();
+    },
+
+    // ✅ 외부에서 전체 다시 그리기 (CAD + 구역)
+    redrawAreas: () => {
+      renderSavedAreas();
     }
   }));
 
@@ -254,9 +379,12 @@ const AreaManager = forwardRef(({
     );
   };
 
+  // ✅ 활성 구역 수만 표시 (삭제된 구역 제외)
+  const activeAreaCount = savedAreas.filter(area => area.drawingStatus !== 'D').length;
+
   return (
     <>
-      {savedAreas.length > 0 && (
+      {activeAreaCount > 0 && (
         <div style={{
           position: 'absolute',
           bottom: '10px',
@@ -269,7 +397,7 @@ const AreaManager = forwardRef(({
           border: '1px solid #1976D2',
           zIndex: 999
         }}>
-          저장된 구역: {savedAreas.length}개
+          활성 구역: {activeAreaCount}개
         </div>
       )}
 
