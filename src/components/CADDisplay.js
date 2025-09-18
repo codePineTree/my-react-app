@@ -154,27 +154,55 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
   const handleAreasChange = (areas) => { setCompletedAreas(areas.map(a => a.coordinates)); };
 
   // ==================== 저장 시 서버 API 호출 (drawingStatus: 'I' 추가) ====================
-  const handleSaveJSON = async () => {
-    if (!currentModelId || completedAreas.length === 0) return;
-    try {
-      for (let areaIndex = 0; areaIndex < completedAreas.length; areaIndex++) {
-        const coordinates = completedAreas[areaIndex];
-        const calculateArea = (coords) => { if (coords.length < 3) return 0.0; let area = 0.0; const n = coords.length; for (let i = 0; i < n; i++) { const j = (i + 1) % n; area += coords[i].x * coords[j].y; area -= coords[j].x * coords[i].y; } return Math.abs(area / 2.0); };
-        const areaData = {
-          modelId: currentModelId,
-          areaNm: `구역_${areaIndex + 1}`,
-          areaDesc: `구역 ${areaIndex + 1} 설명`,
-          areaColor: "#FF0000",
-          areaSize: Math.round(calculateArea(coordinates)),
-          areaStyle: "SOLID",
-          drawingStatus: 'I', // <--- 새 구역임 표시
-          coordinates: coordinates.map((pt, order) => ({ pointOrder: order + 1, x: Math.round(pt.x * 1000) / 1000, y: Math.round(pt.y * 1000) / 1000 }))
-        };
-        await fetch('http://localhost:8080/api/cad/area/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(areaData) });
-      }
-      if (onSave) onSave({ savedCount: completedAreas.length, totalAreas: completedAreas.length });
-    } catch (error) { console.error(error); }
-  };
+ const handleSaveJSON = async () => {
+  if (!currentModelId || completedAreas.length === 0) return;
+
+  try {
+    for (let areaIndex = 0; areaIndex < completedAreas.length; areaIndex++) {
+      const coordinates = completedAreas[areaIndex];
+
+      // 이미 저장된 구역이면 skip
+      if (coordinates.saved) continue;
+
+      const calculateArea = (coords) => {
+        if (coords.length < 3) return 0.0;
+        let area = 0.0;
+        const n = coords.length;
+        for (let i = 0; i < n; i++) {
+          const j = (i + 1) % n;
+          area += coords[i].x * coords[j].y;
+          area -= coords[j].x * coords[i].y;
+        }
+        return Math.abs(area / 2.0);
+      };
+
+      const areaData = {
+        modelId: currentModelId,
+        areaNm: `구역_${areaIndex + 1}`,
+        areaDesc: `구역 ${areaIndex + 1} 설명`,
+        areaColor: "#FF0000",
+        areaSize: Math.round(calculateArea(coordinates)),
+        areaStyle: "SOLID",
+        drawingStatus: 'I',
+        coordinates: coordinates.map((pt, order) => ({ pointOrder: order + 1, x: Math.round(pt.x * 1000) / 1000, y: Math.round(pt.y * 1000) / 1000 }))
+      };
+
+      await fetch('http://localhost:8080/api/cad/area/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(areaData)
+      });
+
+      // 저장 완료 표시
+      coordinates.saved = true;
+    }
+
+    if (onSave) onSave({ savedCount: completedAreas.filter(a => a.saved).length, totalAreas: completedAreas.length });
+
+  } catch (error) {
+    console.error(error);
+  }
+};
 
   useEffect(() => { if (cadFilePath) loadFile(cadFilePath); }, [cadFilePath]);
 
