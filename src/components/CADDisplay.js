@@ -63,7 +63,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
   };
   const renderText = (ctx, entity) => { if (entity.startPoint && entity.text) { ctx.save(); ctx.fillStyle = "#333333"; ctx.font = `${entity.textHeight || 10}px Arial`; ctx.fillText(entity.text, entity.startPoint.x, -entity.startPoint.y); ctx.restore(); } };
   
-  // ✅ CAD 모델만 렌더링하는 함수 (구역은 제외) - 개선된 버전
+  // CAD 모델만 렌더링하는 함수 (구역은 제외) - 개선된 버전
   const renderCADModelOnly = (currentScale = scale, currentOffset = offset) => {
     const canvas = canvasRef.current; 
     if (!canvas || !dxfData || !dxfData.entities) return;
@@ -90,7 +90,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     ctx.restore();
   };
 
-  // ✅ 기존 renderDXF 함수는 그대로 유지 (초기 로드 시 사용)
+  // 기존 renderDXF 함수는 그대로 유지 (초기 로드 시 사용)
   const renderDXF = (dxfData, currentScale = scale, currentOffset = offset) => {
     renderCADModelOnly(currentScale, currentOffset);
   };
@@ -138,10 +138,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
   const calculateScale = (bounds, canvasWidth, canvasHeight) => { const dxfWidth = bounds.maxX - bounds.minX; const dxfHeight = bounds.maxY - bounds.minY; if (!dxfWidth || !dxfHeight) return 1; const scaleX = (canvasWidth * 0.6) / dxfWidth; const scaleY = (canvasHeight * 0.6) / dxfHeight; return Math.max(Math.min(scaleX, scaleY), (Math.min(canvasWidth, canvasHeight) / Math.max(dxfWidth, dxfHeight)) * 0.1); };
   const calculateOffset = (bounds, canvasWidth, canvasHeight, scale) => { const dxfWidth = bounds.maxX - bounds.minX; const dxfHeight = bounds.maxY - bounds.minY; const scaledWidth = dxfWidth * scale; const scaledHeight = dxfHeight * scale; return { x: (canvasWidth - scaledWidth) / 2 - bounds.minX * scale, y: canvasHeight - (canvasHeight - scaledHeight) / 2 + bounds.minY * scale }; };
 
-  // ==================== 저장된 구역 로드 (✅ 수정됨) ====================
+  // ==================== 저장된 구역 로드 ====================
   const loadSavedAreas = async (modelId) => {
     try {
-      console.log('🔍 저장된 구역 데이터 로드 시작:', modelId);
+      console.log('저장된 구역 데이터 로드 시작:', modelId);
       const response = await fetch(`http://localhost:8080/api/cad/area/list/${modelId}`, { 
         method: 'GET', 
         headers: { 'Content-Type': 'application/json' } 
@@ -150,9 +150,9 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.areas && result.areas.length > 0) {
-          console.log('✅ DB에서 로드된 구역 수:', result.areas.length);
+          console.log('DB에서 로드된 구역 수:', result.areas.length);
           
-          // ✅ 각 구역을 개별적으로 처리
+          // 각 구역을 개별적으로 처리
           result.areas.forEach(areaData => {
             // 좌표 데이터 정리
             const coordinates = areaData.coordinates
@@ -162,7 +162,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
             // AreaManager에 저장된 구역으로 추가
             if (areaManagerRef.current) {
               areaManagerRef.current.addSavedArea({
-                areaId: areaData.areaId, // ✅ 실제 DB의 AREA_ID 사용
+                areaId: areaData.areaId, // 실제 DB의 AREA_ID 사용
                 coordinates: coordinates,
                 areaName: areaData.areaNm || `구역_${areaData.areaId}`,
                 areaDesc: areaData.areaDesc || '',
@@ -180,10 +180,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
           setCompletedAreas(loadedCoordinates);
         }
       } else {
-        console.log('❌ 저장된 구역 로드 실패:', response.status);
+        console.log('저장된 구역 로드 실패:', response.status);
       }
     } catch (error) { 
-      console.error('❌ 구역 데이터 로드 중 오류:', error); 
+      console.error('구역 데이터 로드 중 오류:', error); 
     }
   };
 
@@ -203,7 +203,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
       setScale(newScale); 
       setOffset(newOffset); 
       
-      // ✅ CAD 모델 렌더링 후 구역만 다시 그리기 (최적화)
+      // CAD 모델 렌더링 후 구역만 다시 그리기 (최적화)
       renderCADModelOnly(newScale, newOffset);
       if (areaManagerRef.current) {
         requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
@@ -221,7 +221,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
       mouseX = event.clientX; 
       mouseY = event.clientY; 
       
-      // ✅ CAD 모델 렌더링 후 구역만 다시 그리기 (최적화)
+      // CAD 모델 렌더링 후 구역만 다시 그리기 (최적화)
       renderCADModelOnly(scale, newOffset);
       if (areaManagerRef.current) {
         requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
@@ -260,29 +260,29 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
   const handleAreaComplete = (coordinates) => { setCompletedAreas(prev => [...prev, coordinates]); if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates); };
   const handleAreasChange = (areas) => { setCompletedAreas(areas.map(a => a.coordinates)); };
 
-  // ==================== 저장 시 서버 API 호출 (✅ 수정됨) ====================
+  // ==================== 저장 시 서버 API 호출 ====================
   const handleSaveJSON = async () => {
     if (!currentModelId) {
-      console.log('❌ 모델 ID가 없습니다.');
+      console.log('모델 ID가 없습니다.');
       return;
     }
 
     if (!areaManagerRef.current) {
-      console.log('❌ AreaManager 참조가 없습니다.');
+      console.log('AreaManager 참조가 없습니다.');
       return;
     }
 
     try {
-      // ✅ AreaManager에서 저장할 구역들만 가져오기
+      // AreaManager에서 저장할 구역들만 가져오기
       const areasToSave = areaManagerRef.current.getAreasToSave();
       
       if (areasToSave.length === 0) {
-        console.log('💡 저장할 새 구역이 없습니다.');
+        console.log('저장할 새 구역이 없습니다.');
         if (onSave) onSave({ savedCount: 0, totalAreas: 0, message: '저장할 새 구역이 없습니다.' });
         return;
       }
 
-      console.log(`💾 ${areasToSave.length}개 구역 저장 시작`);
+      console.log(`${areasToSave.length}개 구역 저장 시작`);
       let savedCount = 0;
 
       for (const area of areasToSave) {
@@ -321,14 +321,14 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
 
         if (response.ok) {
           const result = await response.json();
-          console.log(`✅ 구역 저장 성공:`, result);
+          console.log(`구역 저장 성공:`, result);
           savedCount++;
         } else {
-          console.error(`❌ 구역 저장 실패:`, response.status);
+          console.error(`구역 저장 실패:`, response.status);
         }
       }
 
-      // ✅ 저장 완료 후 임시 구역들 정리
+      // 저장 완료 후 임시 구역들 정리
       if (savedCount > 0) {
         areaManagerRef.current.clearTempAreas();
         // 저장된 구역들을 다시 로드하여 실제 AREA_ID로 업데이트
@@ -344,7 +344,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
       }
 
     } catch (error) {
-      console.error('❌ 저장 중 오류:', error);
+      console.error('저장 중 오류:', error);
       if (onSave) {
         onSave({ 
           savedCount: 0, 
@@ -362,13 +362,54 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     <div className="cad-display-panel">
       <div className="panel-header">CAD 도면 표시 영역</div>
       <div className="cad-content">
+        {loading && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(255, 255, 255, 0.9)',
+            padding: '20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            zIndex: 1000,
+            textAlign: 'center',
+            fontSize: '16px',
+            color: '#1976D2'
+          }}>
+            <div style={{ marginBottom: '10px' }}>로딩 중...</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>CAD 파일을 불러오고 있습니다.</div>
+          </div>
+        )}
+        
+        {error && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(255, 0, 0, 0.1)',
+            color: '#FF0000',
+            padding: '20px',
+            borderRadius: '8px',
+            border: '2px solid #FF0000',
+            zIndex: 1000,
+            textAlign: 'center',
+            fontSize: '16px',
+            fontWeight: 'bold'
+          }}>
+            <div style={{ marginBottom: '10px' }}>오류 발생</div>
+            <div style={{ fontSize: '14px', fontWeight: 'normal' }}>{error}</div>
+          </div>
+        )}
+
         <div className="cad-toolbar">
-          <button className={`tool-button pen-mode ${isPenMode ? 'active' : ''}`} onClick={handlePenMode}>🖊️</button>
-          <button className={`tool-button eraser-button ${isDeleteMode ? 'active' : ''}`} onClick={handleEraser}>🧽</button>
-          <button className="tool-button magnifier" onClick={handleFitToView}></button>
+          <button className={`tool-button pen-mode ${isPenMode ? 'active' : ''}`} onClick={handlePenMode} disabled={loading}>🖊️</button>
+          <button className={`tool-button eraser-button ${isDeleteMode ? 'active' : ''}`} onClick={handleEraser} disabled={loading}>🧽</button>
+          <button className="tool-button magnifier" onClick={handleFitToView} disabled={loading}></button>
         </div>
-        {onSave && <button onClick={handleSaveJSON} style={{ position: 'absolute', bottom: '60px', right: '50px', background: '#1976D2', color: 'white', padding: '10px 20px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 20 }}>저장</button>}
-        <div className="cad-canvas" style={{ position: 'relative' }}>
+        {onSave && <button onClick={handleSaveJSON} disabled={loading} style={{ position: 'absolute', bottom: '60px', right: '50px', background: loading ? '#ccc' : '#1976D2', color: 'white', padding: '10px 20px', borderRadius: '4px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 20 }}>저장</button>}
+        <div className="cad-canvas" style={{ position: 'relative', opacity: loading ? 0.5 : 1 }}>
           <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: isPenMode ? 'crosshair' : (isDeleteMode ? 'pointer' : 'default') }} />
           <AreaDrawing canvasRef={canvasRef} isPenMode={isPenMode} dxfData={dxfData} scale={scale} offset={offset} onAreaComplete={handleAreaComplete} completedAreas={completedAreas} />
           <AreaManager 

@@ -119,6 +119,32 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     setPendingFiles({});
   };
 
+  // ==================== 전체 구역 삭제 함수 ====================
+  const clearAllAreasFromDB = async (modelId) => {
+    try {
+      console.log('전체 구역 삭제 시작:', modelId);
+      
+      const deleteAllData = {
+        drawingStatus: 'D',
+        areaId: 'ALL',
+        modelId: modelId
+      };
+
+      const response = await axios.post(`${API_BASE_URL}/api/cad/area/save`, deleteAllData);
+      
+      if (response.data.success) {
+        console.log('DB에서 전체 구역 삭제 성공');
+        return true;
+      } else {
+        console.error('DB 전체 삭제 실패:', response.data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('전체 삭제 중 오류:', error);
+      return false;
+    }
+  };
+
   const saveDomain = async () => {
     try {
       const changedRows = domains.filter(d => ['I', 'U', 'D'].includes(d.RowStatus));
@@ -127,6 +153,50 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         return; 
       }
 
+      // ==================== 도메인 삭제 시 관련 구역 자동 삭제 ====================
+      for (const d of changedRows) {
+        if (d.RowStatus === 'D') {
+          console.log('도메인 삭제로 인한 관련 구역 자동 삭제:', d.MODEL_ID);
+          await clearAllAreasFromDB(d.MODEL_ID);
+        }
+      }
+
+      // ==================== CAD 파일 변경 감지 및 구역 삭제 확인 ====================
+      for (const d of changedRows) {
+        if (d.RowStatus === 'U') {
+          // 기존 도메인 수정 시 파일 변경 체크
+          const originalDomains = await axios.post(`${API_BASE_URL}/api/cad/models/getCadModelList`, {});
+          const originalDomain = originalDomains.data.find(orig => orig.MODEL_ID === d.MODEL_ID);
+          const file = pendingFiles[d.MODEL_ID];
+          
+          if (file && originalDomain && originalDomain.FILE_PATH !== file.name) {
+            console.log('CAD 파일 변경 감지:', {
+              original: originalDomain.FILE_PATH,
+              new: file.name,
+              modelId: d.MODEL_ID
+            });
+            
+            const confirmed = window.confirm(
+              `CAD 파일이 변경되었습니다.\n` +
+              `기존 구역 데이터가 새 도면과 맞지 않을 수 있습니다.\n\n` +
+              `모든 구역 데이터를 삭제하고 저장하시겠습니까?`
+            );
+            
+            if (confirmed) {
+              const deleteSuccess = await clearAllAreasFromDB(d.MODEL_ID);
+              if (!deleteSuccess) {
+                alert('구역 삭제 중 오류가 발생했습니다. 저장을 중단합니다.');
+                return;
+              }
+            } else {
+              alert('저장을 취소했습니다.');
+              return;
+            }
+          }
+        }
+      }
+
+      // ==================== 파일 업로드 및 도메인 저장 ====================
       for (const d of changedRows) {
         const file = pendingFiles[d.MODEL_ID];
         if (file && d.RowStatus !== 'D') {
@@ -182,7 +252,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
   const handleDomainDoubleClick = async (domain) => {
     console.log('DomainManagement: 도메인 더블클릭 시작');
     console.log('파일 경로:', domain.FILE_PATH);
-    console.log('MODEL_ID:', domain.MODEL_ID); // 🔍 MODEL_ID 확인용 로그 추가
+    console.log('MODEL_ID:', domain.MODEL_ID);
     
     if (!domain.FILE_PATH) {
       alert('파일 경로가 없습니다.');
@@ -192,16 +262,14 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     let finalData = { ...domain };
 
     if (domain.FILE_PATH.toLowerCase().endsWith('.dwf')) {
-      // 🔥 DWF 파일만 변환 플래그 설정 - 이때만 리디렉션 후 구역관리 탭 유지
       sessionStorage.setItem('conversionRequested', 'true');
       sessionStorage.setItem('conversionFile', domain.FILE_PATH);
-      sessionStorage.setItem('conversionSource', 'dwf_conversion'); // 변환 소스 명시
-      sessionStorage.setItem('conversionModelId', domain.MODEL_ID); // ✅ MODEL_ID도 저장
+      sessionStorage.setItem('conversionSource', 'dwf_conversion');
+      sessionStorage.setItem('conversionModelId', domain.MODEL_ID);
 
       try {
         console.log('DWF 변환 시작:', domain.FILE_PATH);
 
-        // /convertAndGetDxf 엔드포인트 사용 (DXF 텍스트 내용 반환)
         const response = await axios.get(`${API_BASE_URL}/api/cad/convertAndGetDxf`, {
           params: { fileName: domain.FILE_PATH }
         });
@@ -212,66 +280,58 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         if (!response.data || response.data.length < 10) {
           console.warn('DXF 내용이 비어있음');
           alert('DWF 변환 결과가 없습니다.');
-          // 실패 시 플래그 제거
           sessionStorage.removeItem('conversionRequested');
           sessionStorage.removeItem('conversionFile');
           sessionStorage.removeItem('conversionSource');
-          sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID도 제거
+          sessionStorage.removeItem('conversionModelId');
           return;
         }
 
-        // DXF 형식 검증
         if (!response.data.includes('SECTION') && !response.data.includes('HEADER')) {
           console.warn('올바른 DXF 형식이 아님');
           alert('변환된 내용이 올바른 DXF 형식이 아닙니다.');
-          // 실패 시 플래그 제거
           sessionStorage.removeItem('conversionRequested');
           sessionStorage.removeItem('conversionFile');
           sessionStorage.removeItem('conversionSource');
-          sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID도 제거
+          sessionStorage.removeItem('conversionModelId');
           return;
         }
 
-        // DXF 텍스트를 Blob으로 생성
         const blob = new Blob([response.data], { type: 'text/plain; charset=utf-8' });
         const blobUrl = URL.createObjectURL(blob);
         console.log('DWF 변환 완료, blob URL 생성:', blobUrl);
 
-        // App.js에 전달할 데이터 설정
         finalData = {
           ...domain,
-          MODEL_ID: domain.MODEL_ID,    // ✅ MODEL_ID 명시적으로 포함
-          cadFilePath: blobUrl,         // 변환된 Blob URL
-          fileType: 'dxf',              // DXF로 처리
-          isConverted: true             // 변환된 파일임을 표시
+          MODEL_ID: domain.MODEL_ID,
+          cadFilePath: blobUrl,
+          fileType: 'dxf',
+          isConverted: true
         };
 
       } catch (e) {
         console.error('DWF 변환 실패:', e);
         alert('DWF 변환 실패: ' + e.message);
-        // 실패 시 플래그 제거
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
         sessionStorage.removeItem('conversionSource');
-        sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID도 제거
+        sessionStorage.removeItem('conversionModelId');
         return;
       }
     } else {
-      // 🔥 DXF 파일은 변환 플래그 설정하지 않음 - 일반 더블클릭 처리
       console.log('DXF 파일 - 변환 플래그 설정하지 않음');
       
       finalData = {
         ...domain,
-        MODEL_ID: domain.MODEL_ID,    // ✅ MODEL_ID 명시적으로 포함
-        cadFilePath: domain.FILE_PATH, // 원본 파일명
+        MODEL_ID: domain.MODEL_ID,
+        cadFilePath: domain.FILE_PATH,
         fileType: 'dxf',
         isConverted: false
       };
     }
 
-    // App.js로 최종 데이터 전달
     console.log('App.js로 전달할 데이터:', finalData);
-    console.log('전달되는 MODEL_ID:', finalData.MODEL_ID); // 🔍 MODEL_ID 확인용 로그
+    console.log('전달되는 MODEL_ID:', finalData.MODEL_ID);
     onDomainDoubleClick(finalData);
   };
 
