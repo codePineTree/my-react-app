@@ -52,7 +52,7 @@ const AreaManager = forwardRef(({
     return null;
   };
 
-  // ✅ AREA_ID 기준 삭제 처리 함수
+  // ✅ AREA_ID 기준 삭제 처리 함수 - 통합 API 사용
   const deleteAreaById = async (areaId) => {
     const areaToDelete = savedAreas.find(area => area.areaId === areaId);
     if (!areaToDelete) {
@@ -65,20 +65,27 @@ const AreaManager = forwardRef(({
     // 케이스 1: 이미 DB에 저장된 구역 (실제 AREA_ID 존재)
     if (areaToDelete.areaId && !areaToDelete.areaId.startsWith('temp_')) {
       try {
-        // 서버에 삭제 요청
-        const response = await fetch(`http://localhost:8080/api/cad/area/delete/${areaToDelete.areaId}`, {
-          method: 'DELETE',
+        // ✅ 통합 API로 삭제 요청 (drawingStatus: 'D')
+        const deleteData = {
+          drawingStatus: 'D',
+          areaId: areaId
+        };
+
+        const response = await fetch('http://localhost:8080/api/cad/area/save', {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify(deleteData)
         });
 
-        if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
           console.log(`✅ DB에서 구역 삭제 성공: ${areaId}`);
           // 로컬에서도 제거
           setSavedAreas(prev => prev.filter(area => area.areaId !== areaId));
         } else {
-          console.error(`❌ DB 삭제 실패: ${response.status}`);
+          console.error(`❌ DB 삭제 실패:`, result.message);
           // DB 삭제 실패시에도 로컬에서는 삭제 상태로 표시
           setSavedAreas(prev => 
             prev.map(area => 
