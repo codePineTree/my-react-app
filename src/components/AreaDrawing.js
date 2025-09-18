@@ -17,7 +17,8 @@ const AreaDrawing = ({
   scale,          // 현재 줌 배율
   offset,         // 현재 팬 오프셋
   onAreaComplete, // 구역 완성 시 호출할 콜백 함수
-  completedAreas = [] // 이미 완성된 구역들 배열 (새로 추가)
+  completedAreas = [], // 이미 완성된 구역들 배열
+  onRedrawCanvas  // Canvas 전체 다시 그리기 함수
 }) => {
   
   // ==================== 상태 관리 ====================
@@ -419,12 +420,17 @@ const AreaDrawing = ({
    * 클릭한 점들과 연결선만 Canvas에 렌더링
    */
   const renderClickedPoints = () => {
+    console.log('🎨 renderClickedPoints 호출 - 점 개수:', clickedPoints.length);
     const canvas = canvasRef.current;
-    if (!canvas || !isPenMode || clickedPoints.length === 0) return;
+    if (!canvas || !isPenMode || clickedPoints.length === 0) {
+      console.log('❌ renderClickedPoints 중단 - canvas:', !!canvas, 'isPenMode:', isPenMode, 'points:', clickedPoints.length);
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
     ctx.save();
     
+    console.log('🟢 점들을 초록색 원으로 그리기 시작');
     // 클릭한 점들을 초록색 원으로 표시 (유효한 클릭)
     ctx.fillStyle = '#00AA00'; // 초록색으로 변경
     clickedPoints.forEach((point, index) => {
@@ -432,6 +438,7 @@ const AreaDrawing = ({
       ctx.beginPath();
       ctx.arc(canvasCoord.x, canvasCoord.y, 4, 0, 2 * Math.PI);
       ctx.fill();
+      console.log(`점 ${index} 그리기 완료: (${canvasCoord.x.toFixed(1)}, ${canvasCoord.y.toFixed(1)})`);
       
       // 첫 번째 점은 더 크게 표시 (3개 이상일 때)
       if (index === 0 && clickedPoints.length >= 3) {
@@ -440,11 +447,13 @@ const AreaDrawing = ({
         ctx.beginPath();
         ctx.arc(canvasCoord.x, canvasCoord.y, 8, 0, 2 * Math.PI);
         ctx.stroke();
+        console.log('첫 번째 점 강조 표시 완료');
       }
     });
 
     // 클릭한 점들을 초록색 직선으로 연결 (2개 이상일 때)
     if (clickedPoints.length > 1) {
+      console.log('🔗 점들을 선으로 연결 시작');
       ctx.strokeStyle = '#00AA00'; // 초록색으로 변경
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]); // 점선
@@ -461,9 +470,11 @@ const AreaDrawing = ({
       
       ctx.stroke();
       ctx.setLineDash([]); // 점선 해제
+      console.log('✅ 점들 연결 완료');
     }
     
     ctx.restore();
+    console.log('✅ renderClickedPoints 완료');
   };
 
   // ==================== 이벤트 리스너 등록 ====================
@@ -478,25 +489,82 @@ const AreaDrawing = ({
     };
   }, [isPenMode, clickedPoints, scale, offset]);
 
-  // ==================== 렌더링 트리거 ====================
+  // ==================== 렌더링 트리거 개선 ====================
   useEffect(() => {
-    if (isPenMode && clickedPoints.length > 0) {
-      renderClickedPoints();
+    console.log('🔄 렌더링 트리거 - isPenMode:', isPenMode, 'clickedPoints.length:', clickedPoints.length);
+    // 펜 모드일 때만 점들을 렌더링
+    if (isPenMode) {
+      // 약간의 딜레이를 주어 상태 변경이 완전히 적용된 후 렌더링
+      const timeoutId = setTimeout(() => {
+        console.log('⏱️ 딜레이 후 renderClickedPoints 호출');
+        renderClickedPoints();
+      }, 10);
+      
+      return () => {
+        console.log('🧹 렌더링 타이머 클리어');
+        clearTimeout(timeoutId);
+      };
     }
   }, [clickedPoints, isPenMode, scale, offset]);
 
-  // ==================== ESC 키로 그리기 취소 ====================
+  // ==================== ESC 키로 마지막 점 되돌리기 ====================
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.key === 'Escape' && isPenMode) {
-        console.log('ESC: 구역 그리기 취소');
-        setClickedPoints([]);
+        if (clickedPoints.length > 0) {
+          console.log('🔍 ESC 키 눌림 - 디버깅 시작');
+          console.log('현재 점 개수:', clickedPoints.length);
+          console.log('onRedrawCanvas 함수 존재 여부:', !!onRedrawCanvas);
+          
+          // 마지막 점 하나만 제거
+          const newPoints = clickedPoints.slice(0, -1);
+          setClickedPoints(newPoints);
+          console.log(`ESC: 마지막 점 제거 (${clickedPoints.length} -> ${newPoints.length}개)`);
+          
+          // Canvas 전체를 다시 그리기 (DXF + 남은 점들)
+          if (onRedrawCanvas) {
+            console.log('✅ onRedrawCanvas 함수 호출 시작');
+            setTimeout(() => {
+              try {
+                onRedrawCanvas(); // 부모 컴포넌트가 DXF 다시 그리기
+                console.log('✅ onRedrawCanvas 완료');
+                
+                // 잠깐 기다린 후 점들 다시 그리기
+                setTimeout(() => {
+                  console.log('✅ renderClickedPoints 호출');
+                  renderClickedPoints(); // 남은 점들 다시 그리기
+                  console.log('✅ 전체 재그리기 완료');
+                }, 20);
+              } catch (error) {
+                console.error('❌ onRedrawCanvas 에러:', error);
+              }
+            }, 10);
+          } else {
+            console.log('❌ onRedrawCanvas 함수가 제공되지 않았습니다');
+            // 대안: Canvas 전체 지우고 다시 그리기
+            setTimeout(() => {
+              const canvas = canvasRef.current;
+              if (canvas) {
+                const ctx = canvas.getContext('2d');
+                console.log('🧹 Canvas 전체 지우기');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                console.warn('⚠️ onRedrawCanvas 함수가 제공되지 않았습니다. Canvas가 완전히 지워집니다.');
+                
+                setTimeout(() => {
+                  renderClickedPoints(); // 남은 점들만 그리기
+                }, 10);
+              }
+            }, 10);
+          }
+        } else {
+          console.log('ESC: 제거할 점이 없습니다.');
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [isPenMode]);
+  }, [isPenMode, clickedPoints, onRedrawCanvas]); // onRedrawCanvas 의존성 추가
 
   // ==================== 펜 모드 해제 시 점들 초기화 ====================
   useEffect(() => {
@@ -526,7 +594,12 @@ const AreaDrawing = ({
           <div>• 완성된 구역({completedAreas?.length || 0}개) 내부는 클릭 불가</div>
           <div>• 클릭: 점 추가 ({clickedPoints.length}개)</div>
           <div>• 첫 번째 점 근처 클릭: 구역 완성</div>
-          <div>• ESC: 취소</div>
+          <div>• ESC: 마지막 점 되돌리기</div>
+          {!onRedrawCanvas && (
+            <div style={{color: 'orange', fontSize: '10px', marginTop: '5px'}}>
+              ⚠️ onRedrawCanvas 함수 없음 - ESC 시 화면 깨질 수 있음
+            </div>
+          )}
         </div>
       )}
     </>

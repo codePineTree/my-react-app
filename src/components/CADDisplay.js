@@ -65,8 +65,12 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
   
   // CAD 모델만 렌더링하는 함수 (구역은 제외) - 개선된 버전
   const renderCADModelOnly = (currentScale = scale, currentOffset = offset) => {
+    console.log('🖼️ renderCADModelOnly 시작', { currentScale, currentOffset });
     const canvas = canvasRef.current; 
-    if (!canvas || !dxfData || !dxfData.entities) return;
+    if (!canvas || !dxfData || !dxfData.entities) {
+      console.log('❌ renderCADModelOnly 중단 - canvas:', !!canvas, 'dxfData:', !!dxfData);
+      return;
+    }
     
     const ctx = canvas.getContext("2d");
     
@@ -74,13 +78,16 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
+    console.log('📏 Canvas 크기 설정:', rect.width, 'x', rect.height);
     
     // 전체 캔버스 클리어
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    console.log('🧹 Canvas 전체 클리어 완료');
     
     // 배경 그리기
     ctx.fillStyle = "#e6f3ff"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log('🎨 배경 그리기 완료');
     
     // CAD 모델만 렌더링
     ctx.save(); 
@@ -88,6 +95,33 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
     ctx.scale(currentScale, currentScale); 
     dxfData.entities.forEach((entity) => renderEntity(ctx, entity)); 
     ctx.restore();
+    console.log('✅ CAD 모델 렌더링 완료 - 엔터티 수:', dxfData.entities.length);
+  };
+
+  // ==================== AreaDrawing을 위한 전체 Canvas 재그리기 함수 ====================
+  const handleRedrawCanvas = () => {
+    console.log('🔄 Canvas 전체 재그리기 요청');
+    
+    // 1단계: CAD 모델 다시 그리기
+    console.log('🚀 1단계: CAD 모델 다시 그리기 시작');
+    renderCADModelOnly();
+    console.log('✅ 1단계: CAD 모델 렌더링 완료');
+    
+    // 2단계: 완성된 구역들 다시 그리기
+    if (areaManagerRef.current) {
+      console.log('✅ AreaManager 참조 존재함');
+      setTimeout(() => {
+        console.log('🎨 2단계: redrawAreasOnly 호출 시작');
+        try {
+          areaManagerRef.current.redrawAreasOnly();
+          console.log('✅ 2단계: redrawAreasOnly 완료');
+        } catch (error) {
+          console.error('❌ redrawAreasOnly 에러:', error);
+        }
+      }, 10);
+    } else {
+      console.log('❌ AreaManager 참조가 null임');
+    }
   };
 
   // 기존 renderDXF 함수는 그대로 유지 (초기 로드 시 사용)
@@ -420,7 +454,16 @@ const CADDisplay = ({ cadFilePath, modelId, onSave }) => {
         {onSave && <button onClick={handleSaveJSON} disabled={loading} style={{ position: 'absolute', bottom: '60px', right: '50px', background: loading ? '#ccc' : '#1976D2', color: 'white', padding: '10px 20px', borderRadius: '4px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 20 }}>저장</button>}
         <div className="cad-canvas" style={{ position: 'relative', opacity: loading ? 0.5 : 1 }}>
           <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: isPenMode ? 'crosshair' : (isDeleteMode ? 'pointer' : 'default') }} />
-          <AreaDrawing canvasRef={canvasRef} isPenMode={isPenMode} dxfData={dxfData} scale={scale} offset={offset} onAreaComplete={handleAreaComplete} completedAreas={completedAreas} />
+          <AreaDrawing 
+            canvasRef={canvasRef} 
+            isPenMode={isPenMode} 
+            dxfData={dxfData} 
+            scale={scale} 
+            offset={offset} 
+            onAreaComplete={handleAreaComplete} 
+            completedAreas={completedAreas}
+            onRedrawCanvas={handleRedrawCanvas}
+          />
           <AreaManager 
             ref={areaManagerRef} 
             canvasRef={canvasRef} 
