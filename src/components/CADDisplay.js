@@ -6,7 +6,7 @@ import AreaManager from "./AreaManager";
 const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null);
-  const areaDrawingRef = useRef(null); // AreaDrawing ref 추가
+  const areaDrawingRef = useRef(null);
 
   const [dxfData, setDxfData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -24,9 +24,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
   useEffect(() => { if (modelId) setCurrentModelId(modelId); }, [modelId]);
   useEffect(() => { if (currentModelId) loadSavedAreas(currentModelId); }, [currentModelId]);
 
-  // ==================== 임시 파일 정리 함수 ====================
   const cleanupTempFile = async (fileName) => {
-    // cadFileType prop을 사용하여 원본 파일 타입 확인
     if (cadFileType !== 'dwf') {
       console.log('DWF 파일이 아니므로 임시 파일 삭제 생략. 파일타입:', cadFileType);
       return;
@@ -49,7 +47,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
   };
 
-  // ==================== DXF 렌더링 함수 ====================
   const renderEntity = (ctx, entity) => {
     ctx.strokeStyle = "#333333";
     ctx.lineWidth = 1 / ctx.getTransform().a;
@@ -122,7 +119,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     } 
   };
   
-  // CAD 모델만 렌더링하는 함수 (구역은 제외) - 개선된 버전
   const renderCADModelOnly = (currentScale = scale, currentOffset = offset) => {
     console.log('🖼️ renderCADModelOnly 시작', { currentScale, currentOffset });
     const canvas = canvasRef.current; 
@@ -133,22 +129,18 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     
     const ctx = canvas.getContext("2d");
     
-    // 캔버스 크기를 현재 표시 크기와 동일하게 설정
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
     console.log('📏 Canvas 크기 설정:', rect.width, 'x', rect.height);
     
-    // 전체 캔버스 클리어
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     console.log('🧹 Canvas 전체 클리어 완료');
     
-    // 배경 그리기
     ctx.fillStyle = "#e6f3ff"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     console.log('🎨 배경 그리기 완료');
     
-    // CAD 모델만 렌더링
     ctx.save(); 
     ctx.translate(currentOffset.x, currentOffset.y); 
     ctx.scale(currentScale, currentScale); 
@@ -157,16 +149,13 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     console.log('✅ CAD 모델 렌더링 완료 - 엔터티 수:', dxfData.entities.length);
   };
 
-  // ==================== AreaDrawing을 위한 전체 Canvas 재그리기 함수 ====================
   const handleRedrawCanvas = () => {
     console.log('🔄 Canvas 전체 재그리기 요청');
     
-    // 1단계: CAD 모델 다시 그리기
     console.log('🚀 1단계: CAD 모델 다시 그리기 시작');
     renderCADModelOnly();
     console.log('✅ 1단계: CAD 모델 렌더링 완료');
     
-    // 2단계: 완성된 구역들 다시 그리기
     if (areaManagerRef.current) {
       console.log('✅ AreaManager 참조 존재함');
       setTimeout(() => {
@@ -183,12 +172,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
   };
 
-  // 기존 renderDXF 함수는 그대로 유지 (초기 로드 시 사용)
   const renderDXF = (dxfData, currentScale = scale, currentOffset = offset) => {
     renderCADModelOnly(currentScale, currentOffset);
   };
 
-  // ==================== 파일 로드 (임시 파일 삭제 기능 추가) ====================
   const loadFile = async (filePathOrBlobUrl, retryCount = 0) => {
     if (retryCount === 0) { 
       setLoading(true); 
@@ -197,7 +184,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     
     try {
       let dxfText;
-      let isFromAPI = false; // API를 통해 로드했는지 확인
+      let isFromAPI = false;
       
       if (filePathOrBlobUrl.startsWith("blob:")) {
         const res = await fetch(filePathOrBlobUrl); 
@@ -226,10 +213,8 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         renderDXF(dxf);
       }
       
-      // ✅ 성공적으로 로드 완료 후 임시 파일 삭제 (DWF 파일만)
       if (isFromAPI && retryCount === 0 && cadFileType === 'dwf') {
         console.log('CAD 로딩 완료, 임시 파일 삭제 시도:', filePathOrBlobUrl);
-        // 약간의 지연 후 삭제 (렌더링 완료 보장)
         setTimeout(() => {
           cleanupTempFile(filePathOrBlobUrl);
         }, 1000);
@@ -324,7 +309,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }; 
   };
 
-  // ==================== 저장된 구역 로드 ====================
   const loadSavedAreas = async (modelId) => {
     try {
       console.log('저장된 구역 데이터 로드 시작:', modelId);
@@ -338,17 +322,14 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         if (result.success && result.areas && result.areas.length > 0) {
           console.log('DB에서 로드된 구역 수:', result.areas.length);
           
-          // 각 구역을 개별적으로 처리
           result.areas.forEach(areaData => {
-            // 좌표 데이터 정리
             const coordinates = areaData.coordinates
               .sort((a, b) => a.pointOrder - b.pointOrder)
               .map(coord => ({ x: coord.x, y: coord.y }));
 
-            // AreaManager에 저장된 구역으로 추가
             if (areaManagerRef.current) {
               areaManagerRef.current.addSavedArea({
-                areaId: areaData.areaId, // 실제 DB의 AREA_ID 사용
+                areaId: areaData.areaId,
                 coordinates: coordinates,
                 areaName: areaData.areaNm || `구역_${areaData.areaId}`,
                 areaDesc: areaData.areaDesc || '',
@@ -357,7 +338,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
             }
           });
 
-          // 기존 completedAreas 업데이트 (호환성 유지)
           const loadedCoordinates = result.areas.map(area => 
             area.coordinates
               .sort((a, b) => a.pointOrder - b.pointOrder)
@@ -373,7 +353,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
   };
 
-  // ==================== 마우스 이벤트 ====================
   useEffect(() => {
     const canvas = canvasRef.current; 
     if (!canvas || !dxfData) return;
@@ -394,7 +373,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       setScale(newScale); 
       setOffset(newOffset); 
       
-      // CAD 모델 렌더링 후 구역만 다시 그리기 (최적화)
       renderCADModelOnly(newScale, newOffset);
       if (areaManagerRef.current) {
         requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
@@ -417,7 +395,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       mouseX = event.clientX; 
       mouseY = event.clientY; 
       
-      // CAD 모델 렌더링 후 구역만 다시 그리기 (최적화)
       renderCADModelOnly(scale, newOffset);
       if (areaManagerRef.current) {
         requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
@@ -441,10 +418,8 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     };
   }, [dxfData, scale, offset, isPenMode, isDeleteMode]);
 
-  // ==================== 컴포넌트 언마운트 시 임시 파일 정리 ====================
   useEffect(() => {
     return () => {
-      // 컴포넌트 언마운트 시 임시 파일 정리 (DWF 파일만)
       if (cadFilePath && !cadFilePath.startsWith("blob:") && cadFileType === 'dwf') {
         console.log('컴포넌트 언마운트 - 임시 파일 정리:', cadFilePath);
         cleanupTempFile(cadFilePath);
@@ -452,7 +427,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     };
   }, [cadFilePath, cadFileType]);
 
-  // ==================== 버튼 이벤트 ====================
   const handlePenMode = () => { 
     const newPen = !isPenMode; 
     setIsPenMode(newPen); 
@@ -474,7 +448,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         setScale(s); 
         setOffset(o); 
         renderCADModelOnly(s, o);
-        // 구역만 다시 그리기 (최적화)
         if (areaManagerRef.current) {
           requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
         }
@@ -487,14 +460,11 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates); 
   };
 
-  // AreaManager의 활성 구역 상태와 동기화
   const handleAreasChange = (areas) => { 
     console.log('🔄 구역 변경 감지:', areas.length);
-    // AreaManager에서 받은 활성 구역들을 completedAreas에 반영
     setCompletedAreas(areas.map(a => a.coordinates));
   };
 
-  // ==================== 저장 시 서버 API 호출 (편집된 팝업 데이터 포함) ====================
   const handleSaveJSON = async () => {
     if (!currentModelId) {
       console.log('모델 ID가 없습니다.');
@@ -506,7 +476,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       return;
     }
 
-    // 미완성 구역 체크
     const hasIncompleteArea = areaDrawingRef.current?.hasIncompleteArea();
     if (hasIncompleteArea) {
       const confirmed = window.confirm("미완성된 구역이 존재합니다. 구역을 저장하시겠습니까?");
@@ -521,15 +490,11 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
 
     try {
-      // 1. 새로 그린 임시 구역들
       const newAreasToSave = areaManagerRef.current.getAreasToSave();
-      
-      // 2. 현재 편집 중인 팝업 데이터들
       const editingAreasToSave = areaManagerRef.current.getEditingAreasForSave();
 
       let savedCount = 0;
 
-      // 새로 그린 구역들 저장
       for (const area of newAreasToSave) {
         const calculateArea = (coords) => {
           if (coords.length < 3) return 0.0;
@@ -572,13 +537,13 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         }
       }
 
-      // 편집된 구역들 업데이트
       for (const area of editingAreasToSave) {
         const areaData = {
           areaId: area.areaId,
           areaNm: area.areaName,
           areaDesc: area.areaDesc,
           areaColor: area.areaColor,
+          areaStyle: area.areaStyle || "SOLID", // 기본값 추가
           drawingStatus: 'U'
         };
 
@@ -596,20 +561,16 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         }
       }
 
-      // 편집된 데이터를 실제 상태에 적용
       if (editingAreasToSave.length > 0) {
         areaManagerRef.current.applyEditingChanges();
       }
 
-      // 저장 완료 후 처리
       if (newAreasToSave.length > 0) {
         areaManagerRef.current.clearTempAreas();
       }
 
       if (savedCount > 0) {
-        // 저장된 영역들을 다시 로드
         await loadSavedAreas(currentModelId);
-        // 저장 완료 후 모든 팝업 닫기
         if (areaManagerRef.current) {
           areaManagerRef.current.closeAllPopupsAfterSave();
         }
@@ -641,7 +602,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
   useEffect(() => { if (cadFilePath) loadFile(cadFilePath); }, [cadFilePath]);
 
-  // ==================== 렌더링 ====================
   return (
     <div className="cad-display-panel">
       <div className="panel-header">CAD 도면 표시 영역</div>
