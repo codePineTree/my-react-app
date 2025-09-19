@@ -119,6 +119,27 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     setPendingFiles({});
   };
 
+  // ==================== 파일 삭제 함수 ====================
+  const deleteFileFromServer = async (fileName) => {
+    try {
+      console.log('서버에서 파일 삭제 시도:', fileName);
+      const response = await axios.delete(`${API_BASE_URL}/api/cad/deleteFile`, {
+        params: { fileName: fileName }
+      });
+      
+      if (response.data.success) {
+        console.log('파일 삭제 성공:', fileName);
+        return true;
+      } else {
+        console.error('파일 삭제 실패:', response.data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('파일 삭제 중 오류:', error);
+      return false;
+    }
+  };
+
   // ==================== 전체 구역 삭제 함수 ====================
   const clearAllAreasFromDB = async (modelId) => {
     try {
@@ -153,38 +174,61 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         return; 
       }
 
-      // ==================== 도메인 삭제 시 관련 구역 자동 삭제 ====================
+      // ==================== 변경사항별 처리 ====================
       for (const d of changedRows) {
+        const file = pendingFiles[d.MODEL_ID];
+
+        // 1. 도메인 삭제 시: 파일 + 구역 모두 삭제
         if (d.RowStatus === 'D') {
-          console.log('도메인 삭제로 인한 관련 구역 자동 삭제:', d.MODEL_ID);
+          console.log('도메인 삭제 처리:', d.MODEL_ID);
+          
+          // 파일 삭제
+          if (d.FILE_PATH) {
+            const fileDeleted = await deleteFileFromServer(d.FILE_PATH);
+            if (!fileDeleted) {
+              console.warn('파일 삭제 실패, 계속 진행:', d.FILE_PATH);
+            }
+          }
+          
+          // 관련 구역 삭제
           await clearAllAreasFromDB(d.MODEL_ID);
         }
-      }
-
-      // ==================== CAD 파일 변경 감지 및 구역 삭제 확인 ====================
-      for (const d of changedRows) {
-        if (d.RowStatus === 'U') {
-          // 기존 도메인 수정 시 파일 변경 체크
+        
+        // 2. 파일 교체 시: 기존 파일 삭제 + 구역 삭제 확인
+        else if (d.RowStatus === 'U' && file) {
+          console.log('파일 교체 처리:', d.MODEL_ID);
+          
+          // 기존 도메인 정보 조회
           const originalDomains = await axios.post(`${API_BASE_URL}/api/cad/models/getCadModelList`, {});
           const originalDomain = originalDomains.data.find(orig => orig.MODEL_ID === d.MODEL_ID);
-          const file = pendingFiles[d.MODEL_ID];
           
-          if (file && originalDomain && originalDomain.FILE_PATH !== file.name) {
+          if (originalDomain && originalDomain.FILE_PATH && originalDomain.FILE_PATH !== file.name) {
             console.log('CAD 파일 변경 감지:', {
               original: originalDomain.FILE_PATH,
               new: file.name,
               modelId: d.MODEL_ID
             });
             
+            // 구역 삭제 확인
             const confirmed = window.confirm(
               `CAD 파일이 변경되었습니다.\n` +
-              `기존 구역 데이터가 새 도면과 맞지 않을 수 있습니다.\n\n` +
+              `기존 파일: ${originalDomain.FILE_PATH}\n` +
+              `새 파일: ${file.name}\n\n` +
+              `기존 구역 데이터가 새 도면과 맞지 않을 수 있습니다.\n` +
               `모든 구역 데이터를 삭제하고 저장하시겠습니까?`
             );
             
             if (confirmed) {
-              const deleteSuccess = await clearAllAreasFromDB(d.MODEL_ID);
-              if (!deleteSuccess) {
+              // 기존 파일 삭제
+              const fileDeleted = await deleteFileFromServer(originalDomain.FILE_PATH);
+              if (!fileDeleted) {
+                alert('기존 파일 삭제에 실패했습니다. 저장을 중단합니다.');
+                return;
+              }
+              
+              // 구역 데이터 삭제
+              const areasDeleted = await clearAllAreasFromDB(d.MODEL_ID);
+              if (!areasDeleted) {
                 alert('구역 삭제 중 오류가 발생했습니다. 저장을 중단합니다.');
                 return;
               }
@@ -196,29 +240,42 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         }
       }
 
-      // ==================== 파일 업로드 및 도메인 저장 ====================
+      // ==================== 새 파일 업로드 ====================
       for (const d of changedRows) {
         const file = pendingFiles[d.MODEL_ID];
         if (file && d.RowStatus !== 'D') {
+          console.log('새 파일 업로드:', file.name);
+          
           const fileExt = file.name.split('.').pop().toLowerCase();
           const formDataObj = new FormData();
           formDataObj.append('file', file);
           formDataObj.append('modelId', d.MODEL_ID);
           
-          if (fileExt === 'dxf') {
-            await axios.post(`${API_BASE_URL}/api/cad/uploadDXF`, formDataObj, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
-          } else if (fileExt === 'dwf') {
-            await axios.post(`${API_BASE_URL}/api/cad/uploadDWF`, formDataObj, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
+          try {
+            if (fileExt === 'dxf') {
+              await axios.post(`${API_BASE_URL}/api/cad/uploadDXF`, formDataObj, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+              });
+            } else if (fileExt === 'dwf') {
+              await axios.post(`${API_BASE_URL}/api/cad/uploadDWF`, formDataObj, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+              });
+            } else {
+              alert(`지원하지 않는 파일 형식입니다: ${fileExt}`);
+              return;
+            }
+            
+            d.FILE_PATH = file.name;
+            console.log('파일 업로드 완료:', file.name);
+          } catch (uploadError) {
+            console.error('파일 업로드 실패:', uploadError);
+            alert('파일 업로드에 실패했습니다: ' + uploadError.message);
+            return;
           }
-          d.FILE_PATH = file.name;
-          delete pendingFiles[d.MODEL_ID];
         }
       }
 
+      // ==================== 도메인 정보 저장 ====================
       const payload = changedRows.map(d => ({
         MODEL_ID: d.MODEL_ID,
         MODEL_NM: d.MODEL_NM || '',
@@ -230,16 +287,23 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         RowStatus: d.RowStatus
       }));
 
+      console.log('도메인 정보 저장:', payload);
       await axios.post(`${API_BASE_URL}/api/cad/models/saveCadModelList`, payload);
+      
       alert('변경사항과 파일이 서버에 저장되었습니다.');
+      
+      // 상태 초기화
       setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '' });
       setSelectedDomain(null);
       setPendingFiles({});
       setUploadedFiles([]);
+      
+      // 도메인 목록 새로고침
       await fetchDomains();
+      
     } catch (e) { 
       console.error('저장 중 오류', e); 
-      alert('저장 중 오류'); 
+      alert('저장 중 오류가 발생했습니다: ' + e.message); 
     }
   };
 
