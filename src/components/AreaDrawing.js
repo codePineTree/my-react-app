@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 
 /**
  * AreaDrawing 컴포넌트
@@ -10,7 +10,7 @@ import React, { useEffect, useState } from "react";
  * 3. 마지막 점이 첫 번째 점 근처에 오면 구역 완성
  * 4. 실시간 미리보기 없이 클릭한 지점만 표시
  */
-const AreaDrawing = ({ 
+const AreaDrawing = forwardRef(({ 
   canvasRef,      // Canvas DOM 요소 참조
   isPenMode,      // 펜 모드 활성화 여부
   dxfData,        // DXF 도면 데이터 (필요시 참조)
@@ -19,7 +19,7 @@ const AreaDrawing = ({
   onAreaComplete, // 구역 완성 시 호출할 콜백 함수
   completedAreas = [], // 이미 완성된 구역들 배열
   onRedrawCanvas  // Canvas 전체 다시 그리기 함수
-}) => {
+}, ref) => {
   
   // ==================== 상태 관리 ====================
   // 사용자가 클릭한 점들 배열
@@ -27,6 +27,24 @@ const AreaDrawing = ({
 
   // 닫힌 구역 감지를 위한 허용 거리 (픽셀)
   const CLOSE_DISTANCE = 15;
+
+  // ==================== 외부에서 호출 가능한 메서드들 ====================
+  useImperativeHandle(ref, () => ({
+    // 미완성 구역이 있는지 확인하는 메서드
+    hasIncompleteArea: () => {
+      return clickedPoints.length > 0;
+    },
+    
+    // 현재 클릭된 점 개수 반환
+    getClickedPointsCount: () => {
+      return clickedPoints.length;
+    },
+    
+    // 클릭된 점들 초기화
+    clearClickedPoints: () => {
+      setClickedPoints([]);
+    }
+  }));
 
   // ==================== 좌표 변환 함수 ====================
   /**
@@ -605,6 +623,6 @@ const AreaDrawing = ({
       )}
     </>
   );
-};
+});
 
 export default AreaDrawing;

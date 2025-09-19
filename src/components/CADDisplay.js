@@ -6,6 +6,7 @@ import AreaManager from "./AreaManager";
 const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null);
+  const areaDrawingRef = useRef(null); // AreaDrawing ref 추가
 
   const [dxfData, setDxfData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -493,7 +494,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     setCompletedAreas(areas.map(a => a.coordinates));
   };
 
-  // ==================== 저장 시 서버 API 호출 ====================
+  // ==================== 저장 시 서버 API 호출 (미완성 구역 체크 추가) ====================
   const handleSaveJSON = async () => {
     if (!currentModelId) {
       console.log('모델 ID가 없습니다.');
@@ -503,6 +504,25 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     if (!areaManagerRef.current) {
       console.log('AreaManager 참조가 없습니다.');
       return;
+    }
+
+    // ✅ 미완성 구역 체크
+    const hasIncompleteArea = areaDrawingRef.current?.hasIncompleteArea();
+    if (hasIncompleteArea) {
+      const confirmed = window.confirm("미완성된 구역이 존재합니다. 구역을 저장하시겠습니까?");
+      if (confirmed) {
+        // 미완성 구역만 지우기
+        areaDrawingRef.current?.clearClickedPoints();
+        
+        // Canvas 다시 그리기 (DXF + 완성된 구역들만)
+        handleRedrawCanvas();
+        
+        console.log('미완성 구역 지움 - 저장 계속 진행');
+        // 저장 계속 진행
+      } else {
+        console.log('저장 취소됨');
+        return; // 저장 취소
+      }
     }
 
     try {
@@ -653,6 +673,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
             }} 
           />
           <AreaDrawing 
+            ref={areaDrawingRef}
             canvasRef={canvasRef} 
             isPenMode={isPenMode} 
             dxfData={dxfData} 
