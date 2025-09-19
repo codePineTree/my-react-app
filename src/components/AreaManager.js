@@ -160,7 +160,7 @@ const AreaManager = forwardRef(({
         console.log(`🗑️ 구역 삭제 요청: ${clickedArea.areaId}`);
         
         // 사용자 확인
-        const confirmed = window.confirm(`구역 "${clickedArea.areaName || clickedArea.areaId}"을(를) 삭제하시겠습니까?`);
+        const confirmed = window.confirm(`해당 구역을 삭제하시겠습니까?`);
         if (confirmed) {
           await deleteAreaById(clickedArea.areaId);
         }
