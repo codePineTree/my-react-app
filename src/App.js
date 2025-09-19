@@ -15,7 +15,7 @@ const App = () => {
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
   const [cadFileType, setCadFileType] = useState(''); // dxf / dwf
-  const [modelId, setModelId] = useState(null); // ✅ 모델 ID 상태 추가
+  const [modelId, setModelId] = useState(null);
 
   // ------------------ 페이지 로딩시 변환된 파일 체크 ------------------
   useEffect(() => {
@@ -28,7 +28,7 @@ const App = () => {
       console.log('🔍 변환된 파일 체크 시작...');
       const conversionRequested = sessionStorage.getItem('conversionRequested');
       const conversionSource = sessionStorage.getItem('conversionSource');
-      const conversionModelId = sessionStorage.getItem('conversionModelId'); // ✅ MODEL_ID 복원
+      const conversionModelId = sessionStorage.getItem('conversionModelId');
       
       if (!conversionRequested || conversionSource !== 'dwf_conversion') {
         console.log('❌ 변환 요청 없음 - 도면관리 탭 유지');
@@ -41,7 +41,7 @@ const App = () => {
 
       const data = await response.json();
       console.log('📋 체크 결과:', data);
-      console.log('📋 복원된 MODEL_ID:', conversionModelId); // 🔍 MODEL_ID 확인용 로그
+      console.log('📋 복원된 MODEL_ID:', conversionModelId);
       
       if (data.hasFiles) {
         console.log('✅ 변환된 파일 발견:', data.fileName);
@@ -50,10 +50,10 @@ const App = () => {
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
         sessionStorage.removeItem('conversionSource');
-        sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID 플래그도 제거
+        sessionStorage.removeItem('conversionModelId');
 
         setCadFilePath(data.fileName);
-        setCadFileType('dxf');
+        setCadFileType('dwf');
         // ✅ sessionStorage에서 복원한 MODEL_ID 사용 (서버 응답보다 우선)
         setModelId(conversionModelId || data.MODEL_ID || null); 
         setActiveTab('구역관리');
@@ -65,14 +65,14 @@ const App = () => {
         sessionStorage.removeItem('conversionRequested');
         sessionStorage.removeItem('conversionFile');
         sessionStorage.removeItem('conversionSource');
-        sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID 플래그도 제거
+        sessionStorage.removeItem('conversionModelId');
       }
     } catch (error) {
       console.log('❌ 변환 체크 실패', error);
       sessionStorage.removeItem('conversionRequested');
       sessionStorage.removeItem('conversionFile');
       sessionStorage.removeItem('conversionSource');
-      sessionStorage.removeItem('conversionModelId'); // ✅ MODEL_ID 플래그도 제거
+      sessionStorage.removeItem('conversionModelId');
     }
   };
 
@@ -85,9 +85,9 @@ const App = () => {
       return;
     }
 
-    setCadFileType('dxf');
+    setCadFileType('dxf'); // 도메인에서 직접 선택한 파일은 DXF
     setCadFilePath(domainData.cadFilePath);
-    setModelId(domainData.MODEL_ID); // ✅ DomainList에서 MODEL_ID 세팅
+    setModelId(domainData.MODEL_ID);
     setActiveTab('구역관리');
   };
 
@@ -112,7 +112,7 @@ const App = () => {
               <CADDisplay 
                 cadFilePath={cadFilePath} 
                 cadFileType={cadFileType}
-                modelId={modelId} // ✅ CADDisplay로 전달
+                modelId={modelId}
                 onSave={() => alert('저장되었습니다.')}
               />
               <div style={{height: '100px'}}></div>
