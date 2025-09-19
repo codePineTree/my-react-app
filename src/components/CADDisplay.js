@@ -494,7 +494,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     setCompletedAreas(areas.map(a => a.coordinates));
   };
 
-  // ==================== 저장 시 서버 API 호출 (미완성 구역 체크 추가) ====================
+  // ==================== 저장 시 서버 API 호출 (편집된 팝업 데이터 포함) ====================
   const handleSaveJSON = async () => {
     if (!currentModelId) {
       console.log('모델 ID가 없습니다.');
@@ -506,39 +506,31 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       return;
     }
 
-    // ✅ 미완성 구역 체크
+    // 미완성 구역 체크
     const hasIncompleteArea = areaDrawingRef.current?.hasIncompleteArea();
     if (hasIncompleteArea) {
       const confirmed = window.confirm("미완성된 구역이 존재합니다. 구역을 저장하시겠습니까?");
       if (confirmed) {
-        // 미완성 구역만 지우기
         areaDrawingRef.current?.clearClickedPoints();
-        
-        // Canvas 다시 그리기 (DXF + 완성된 구역들만)
         handleRedrawCanvas();
-        
         console.log('미완성 구역 지움 - 저장 계속 진행');
-        // 저장 계속 진행
       } else {
         console.log('저장 취소됨');
-        return; // 저장 취소
+        return;
       }
     }
 
     try {
-      // AreaManager에서 저장할 구역들만 가져오기
-      const areasToSave = areaManagerRef.current.getAreasToSave();
+      // 1. 새로 그린 임시 구역들
+      const newAreasToSave = areaManagerRef.current.getAreasToSave();
       
-      if (areasToSave.length === 0) {
-        console.log('저장할 새 구역이 없습니다.');
-        if (onSave) onSave({ savedCount: 0, totalAreas: 0, message: '저장할 새 구역이 없습니다.' });
-        return;
-      }
+      // 2. 현재 편집 중인 팝업 데이터들
+      const editingAreasToSave = areaManagerRef.current.getEditingAreasForSave();
 
-      console.log(`${areasToSave.length}개 구역 저장 시작`);
       let savedCount = 0;
 
-      for (const area of areasToSave) {
+      // 새로 그린 구역들 저장
+      for (const area of newAreasToSave) {
         const calculateArea = (coords) => {
           if (coords.length < 3) return 0.0;
           let area = 0.0;
@@ -554,8 +546,8 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         const areaData = {
           modelId: currentModelId,
           areaNm: area.areaName || `구역_${savedCount + 1}`,
-          areaDesc: area.areaDesc || `구역 ${savedCount + 1} 설명`,
-          areaColor: area.areaColor || "#FF0000",
+          areaDesc: area.areaDesc || '',
+          areaColor: area.areaColor || "#CCCCCC",
           areaSize: Math.round(calculateArea(area.coordinates)),
           areaStyle: "SOLID",
           drawingStatus: 'I',
@@ -573,26 +565,60 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         });
 
         if (response.ok) {
-          const result = await response.json();
-          console.log(`구역 저장 성공:`, result);
+          console.log(`새 구역 저장 성공`);
           savedCount++;
         } else {
-          console.error(`구역 저장 실패:`, response.status);
+          console.error(`새 구역 저장 실패:`, response.status);
         }
       }
 
-      // 저장 완료 후 임시 구역들 정리
-      if (savedCount > 0) {
+      // 편집된 구역들 업데이트
+      for (const area of editingAreasToSave) {
+        const areaData = {
+          areaId: area.areaId,
+          areaNm: area.areaName,
+          areaDesc: area.areaDesc,
+          areaColor: area.areaColor,
+          drawingStatus: 'U'
+        };
+
+        const response = await fetch('http://localhost:8080/api/cad/area/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(areaData)
+        });
+
+        if (response.ok) {
+          console.log(`편집된 구역 업데이트 성공: ${area.areaId}`);
+          savedCount++;
+        } else {
+          console.error(`편집된 구역 업데이트 실패: ${area.areaId}`, response.status);
+        }
+      }
+
+      // 편집된 데이터를 실제 상태에 적용
+      if (editingAreasToSave.length > 0) {
+        areaManagerRef.current.applyEditingChanges();
+      }
+
+      // 저장 완료 후 처리
+      if (newAreasToSave.length > 0) {
         areaManagerRef.current.clearTempAreas();
-        // 저장된 구역들을 다시 로드하여 실제 AREA_ID로 업데이트
+      }
+
+      if (savedCount > 0) {
         await loadSavedAreas(currentModelId);
       }
 
+      const totalChanges = newAreasToSave.length + editingAreasToSave.length;
+      
       if (onSave) {
         onSave({ 
           savedCount, 
-          totalAreas: areasToSave.length, 
-          message: `${savedCount}개 구역이 성공적으로 저장되었습니다.` 
+          totalAreas: totalChanges, 
+          message: totalChanges === 0 
+            ? '저장할 변경사항이 없습니다.' 
+            : `${savedCount}개 항목이 성공적으로 저장되었습니다.` 
         });
       }
 
