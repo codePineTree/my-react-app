@@ -396,6 +396,12 @@ const AreaManager = forwardRef(({
       setSavedAreas(prev => prev.filter(area => !area.areaId.startsWith('temp_')));
     },
 
+    // 저장 완료 후 모든 팝업 닫기
+    closeAllPopupsAfterSave: () => {
+      console.log('저장 완료 후 모든 팝업 닫기');
+      closeAllPopups();
+    },
+
     redrawAreasOnly: () => {
       renderAreasOnly();
     },

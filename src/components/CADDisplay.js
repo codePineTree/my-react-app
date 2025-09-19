@@ -607,7 +607,12 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       }
 
       if (savedCount > 0) {
+        // 저장된 영역들을 다시 로드
         await loadSavedAreas(currentModelId);
+        // 저장 완료 후 모든 팝업 닫기
+        if (areaManagerRef.current) {
+          areaManagerRef.current.closeAllPopupsAfterSave();
+        }
       }
 
       const totalChanges = newAreasToSave.length + editingAreasToSave.length;
