@@ -336,6 +336,30 @@ const AreaDrawing = ({
     return null;
   };
 
+  // ==================== Canvas 완전 지우기 함수 ====================
+  /**
+   * Canvas를 완전히 지우고 DXF 데이터만 다시 그리는 함수
+   */
+  const clearAndRedrawCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    console.log('🧹 Canvas 완전 지우기 시작');
+    const ctx = canvas.getContext('2d');
+    
+    // Canvas 전체 지우기
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    console.log('✅ Canvas 지우기 완료');
+    
+    // DXF 데이터 다시 그리기
+    if (onRedrawCanvas) {
+      console.log('🔄 DXF 데이터 다시 그리기 시작');
+      onRedrawCanvas();
+      console.log('✅ DXF 데이터 다시 그리기 완료');
+    }
+  };
+
   // ==================== 마우스 이벤트 핸들러 ====================
   /**
    * 마우스 클릭 이벤트 처리
@@ -507,55 +531,32 @@ const AreaDrawing = ({
     }
   }, [clickedPoints, isPenMode, scale, offset]);
 
-  // ==================== ESC 키로 마지막 점 되돌리기 ====================
+  // ==================== ESC 키로 마지막 점 되돌리기 (수정됨) ====================
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.key === 'Escape' && isPenMode) {
         if (clickedPoints.length > 0) {
-          console.log('🔍 ESC 키 눌림 - 디버깅 시작');
+          console.log('🔍 ESC 키 눌림 - 마지막 점 제거 시작');
           console.log('현재 점 개수:', clickedPoints.length);
-          console.log('onRedrawCanvas 함수 존재 여부:', !!onRedrawCanvas);
           
           // 마지막 점 하나만 제거
           const newPoints = clickedPoints.slice(0, -1);
           setClickedPoints(newPoints);
           console.log(`ESC: 마지막 점 제거 (${clickedPoints.length} -> ${newPoints.length}개)`);
           
-          // Canvas 전체를 다시 그리기 (DXF + 남은 점들)
-          if (onRedrawCanvas) {
-            console.log('✅ onRedrawCanvas 함수 호출 시작');
+          // Canvas 완전히 지우고 DXF만 다시 그리기
+          console.log('🧹 Canvas 완전 지우기 및 DXF 재그리기 시작');
+          clearAndRedrawCanvas();
+          
+          // 남은 점들이 있으면 잠깐 후 다시 그리기
+          if (newPoints.length > 0) {
             setTimeout(() => {
-              try {
-                onRedrawCanvas(); // 부모 컴포넌트가 DXF 다시 그리기
-                console.log('✅ onRedrawCanvas 완료');
-                
-                // 잠깐 기다린 후 점들 다시 그리기
-                setTimeout(() => {
-                  console.log('✅ renderClickedPoints 호출');
-                  renderClickedPoints(); // 남은 점들 다시 그리기
-                  console.log('✅ 전체 재그리기 완료');
-                }, 20);
-              } catch (error) {
-                console.error('❌ onRedrawCanvas 에러:', error);
-              }
-            }, 10);
-          } else {
-            console.log('❌ onRedrawCanvas 함수가 제공되지 않았습니다');
-            // 대안: Canvas 전체 지우고 다시 그리기
-            setTimeout(() => {
-              const canvas = canvasRef.current;
-              if (canvas) {
-                const ctx = canvas.getContext('2d');
-                console.log('🧹 Canvas 전체 지우기');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                console.warn('⚠️ onRedrawCanvas 함수가 제공되지 않았습니다. Canvas가 완전히 지워집니다.');
-                
-                setTimeout(() => {
-                  renderClickedPoints(); // 남은 점들만 그리기
-                }, 10);
-              }
-            }, 10);
+              console.log('⏱️ 남은 점들 다시 그리기');
+              // 상태가 업데이트된 후 renderClickedPoints가 자동으로 호출됨
+            }, 50);
           }
+          
+          console.log('✅ ESC 처리 완료');
         } else {
           console.log('ESC: 제거할 점이 없습니다.');
         }
@@ -564,7 +565,7 @@ const AreaDrawing = ({
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [isPenMode, clickedPoints, onRedrawCanvas]); // onRedrawCanvas 의존성 추가
+  }, [isPenMode, clickedPoints, onRedrawCanvas]);
 
   // ==================== 펜 모드 해제 시 점들 초기화 ====================
   useEffect(() => {
