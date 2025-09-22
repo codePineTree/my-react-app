@@ -496,7 +496,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
       let savedCount = 0;
 
-      // 새 구역 저장
+      // 새 구역 저장 - 편집 데이터 반영
       for (const area of newAreasToSave) {
         const calculateArea = (coords) => {
           if (coords.length < 3) return 0.0;
@@ -510,11 +510,15 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           return Math.abs(area / 2.0);
         };
 
+        // 편집 중인 데이터가 있으면 그걸 사용
+        const editData = editingAreasToSave.find(editArea => editArea.areaId === area.areaId);
+        const finalAreaData = editData || area;
+
         const areaData = {
           modelId: currentModelId,
-          areaNm: area.areaName || `구역_${savedCount + 1}`,
-          areaDesc: area.areaDesc || '',
-          areaColor: area.areaColor || "#CCCCCC",
+          areaNm: finalAreaData.areaName || `구역_${savedCount + 1}`,
+          areaDesc: finalAreaData.areaDesc || '',
+          areaColor: finalAreaData.areaColor || "#CCCCCC",
           areaSize: Math.round(calculateArea(area.coordinates)),
           areaStyle: "SOLID",
           drawingStatus: 'I',
