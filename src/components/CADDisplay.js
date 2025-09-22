@@ -492,9 +492,11 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     try {
       const newAreasToSave = areaManagerRef.current.getAreasToSave();
       const editingAreasToSave = areaManagerRef.current.getEditingAreasForSave();
+      const deletedAreasToSave = areaManagerRef.current.getDeletedAreasForSave(); // 삭제된 구역들
 
       let savedCount = 0;
 
+      // 새 구역 저장
       for (const area of newAreasToSave) {
         const calculateArea = (coords) => {
           if (coords.length < 3) return 0.0;
@@ -537,13 +539,14 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         }
       }
 
+      // 편집된 구역 저장
       for (const area of editingAreasToSave) {
         const areaData = {
           areaId: area.areaId,
           areaNm: area.areaName,
           areaDesc: area.areaDesc,
           areaColor: area.areaColor,
-          areaStyle: area.areaStyle || "SOLID", // 기본값 추가
+          areaStyle: area.areaStyle || "SOLID",
           drawingStatus: 'U'
         };
 
@@ -561,12 +564,38 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         }
       }
 
+      // 삭제된 구역 저장 (새로 추가)
+      for (const area of deletedAreasToSave) {
+        const deleteData = {
+          areaId: area.areaId,
+          drawingStatus: 'D'
+        };
+
+        const response = await fetch('http://localhost:8080/api/cad/area/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(deleteData)
+        });
+
+        if (response.ok) {
+          console.log(`구역 삭제 성공: ${area.areaId}`);
+          savedCount++;
+        } else {
+          console.error(`구역 삭제 실패: ${area.areaId}`, response.status);
+        }
+      }
+
+      // 변경사항 적용
       if (editingAreasToSave.length > 0) {
         areaManagerRef.current.applyEditingChanges();
       }
 
       if (newAreasToSave.length > 0) {
         areaManagerRef.current.clearTempAreas();
+      }
+
+      if (deletedAreasToSave.length > 0) {
+        areaManagerRef.current.clearDeletedAreas(); // 삭제된 구역들 실제 제거
       }
 
       if (savedCount > 0) {
@@ -576,7 +605,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         }
       }
 
-      const totalChanges = newAreasToSave.length + editingAreasToSave.length;
+      const totalChanges = newAreasToSave.length + editingAreasToSave.length + deletedAreasToSave.length;
       
       if (onSave) {
         onSave({ 

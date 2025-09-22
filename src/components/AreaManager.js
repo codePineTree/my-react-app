@@ -133,70 +133,34 @@ const AreaManager = forwardRef(({
     closeAllPopups();
   };
 
-  // 삭제 함수
-  const deleteAreaById = async (areaId) => {
+  // 로컬 삭제 함수 - DB 호출 없이 로컬에서만 삭제 표시
+  const deleteAreaLocally = (areaId) => {
     const areaToDelete = savedAreas.find(area => area.areaId === areaId);
     if (!areaToDelete) {
       console.log(`삭제할 구역을 찾을 수 없음: ${areaId}`);
       return false;
     }
 
-    console.log(`구역 삭제 시작: ${areaId}`, areaToDelete);
+    console.log(`구역 로컬 삭제 표시: ${areaId}`, areaToDelete);
 
-    if (areaToDelete.areaId && !areaToDelete.areaId.startsWith('temp_')) {
-      try {
-        const deleteData = {
-          drawingStatus: 'D',
-          areaId: areaId
-        };
-
-        const response = await fetch('http://localhost:8080/api/cad/area/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(deleteData)
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          console.log(`DB에서 구역 삭제 성공: ${areaId}`);
-          setSavedAreas(prev => {
-            const newAreas = prev.filter(area => area.areaId !== areaId);
-            const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
-            if (onAreasChange) onAreasChange(activeAreas);
-            return newAreas;
-          });
-        } else {
-          console.error(`DB 삭제 실패:`, result.message);
-          setSavedAreas(prev => {
-            const newAreas = prev.map(area => 
-              area.areaId === areaId 
-                ? { ...area, drawingStatus: 'D' } 
-                : area
-            );
-            const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
-            if (onAreasChange) onAreasChange(activeAreas);
-            return newAreas;
-          });
-        }
-      } catch (error) {
-        console.error(`DB 삭제 중 오류:`, error);
-        setSavedAreas(prev => {
-          const newAreas = prev.map(area => 
-            area.areaId === areaId 
-              ? { ...area, drawingStatus: 'D' } 
-              : area
-          );
-          const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
-          if (onAreasChange) onAreasChange(activeAreas);
-          return newAreas;
-        });
-      }
-    } else if (areaToDelete.areaId.startsWith('temp_')) {
-      console.log(`임시 구역 로컬 삭제: ${areaId}`);
+    if (areaToDelete.areaId && areaToDelete.areaId.startsWith('temp_')) {
+      // 임시 구역은 바로 제거
+      console.log(`임시 구역 즉시 삭제: ${areaId}`);
       setSavedAreas(prev => {
         const newAreas = prev.filter(area => area.areaId !== areaId);
+        const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
+        if (onAreasChange) onAreasChange(activeAreas);
+        return newAreas;
+      });
+    } else {
+      // 기존 DB 구역은 삭제 표시만
+      console.log(`기존 구역 삭제 표시: ${areaId}`);
+      setSavedAreas(prev => {
+        const newAreas = prev.map(area => 
+          area.areaId === areaId 
+            ? { ...area, drawingStatus: 'D' } 
+            : area
+        );
         const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
         if (onAreasChange) onAreasChange(activeAreas);
         return newAreas;
@@ -208,7 +172,7 @@ const AreaManager = forwardRef(({
     return true;
   };
 
-  // 클릭 이벤트 수정 - 지우개 모드 제외하고 팝업 열기 허용
+  // 클릭 이벤트 수정 - 지우개 모드에서는 로컬 삭제만
   const handleCanvasClick = async (event) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -226,11 +190,11 @@ const AreaManager = forwardRef(({
 
     if (clickedArea) {
       if (isDeleteMode) {
-        // 지우개 모드일 때만 삭제
-        console.log(`구역 삭제 요청: ${clickedArea.areaId}`);
+        // 지우개 모드일 때 로컬 삭제만 수행
+        console.log(`구역 로컬 삭제 요청: ${clickedArea.areaId}`);
         const confirmed = window.confirm(`"${clickedArea.areaName}"을(를) 삭제하시겠습니까?`);
         if (confirmed) {
-          await deleteAreaById(clickedArea.areaId);
+          deleteAreaLocally(clickedArea.areaId);
         }
       } else {
         // 펜모드, 일반모드에서 팝업 열기 (지우개 모드 제외)
@@ -337,7 +301,7 @@ const AreaManager = forwardRef(({
     },
 
     deleteArea: (areaId) => {
-      return deleteAreaById(areaId);
+      return deleteAreaLocally(areaId); // 로컬 삭제로 변경
     },
 
     refreshAreas: () => {
@@ -350,6 +314,14 @@ const AreaManager = forwardRef(({
       return savedAreas.filter(area => 
         area.drawingStatus === 'I' && 
         area.areaId.startsWith('temp_')
+      );
+    },
+
+    // 삭제된 구역들을 저장용으로 반환 (새로 추가)
+    getDeletedAreasForSave: () => {
+      return savedAreas.filter(area => 
+        area.drawingStatus === 'D' && 
+        !area.areaId.startsWith('temp_') // 기존 DB 구역만
       );
     },
 
@@ -394,6 +366,11 @@ const AreaManager = forwardRef(({
 
     clearTempAreas: () => {
       setSavedAreas(prev => prev.filter(area => !area.areaId.startsWith('temp_')));
+    },
+
+    // 삭제된 구역들을 실제로 제거 (저장 완료 후)
+    clearDeletedAreas: () => {
+      setSavedAreas(prev => prev.filter(area => area.drawingStatus !== 'D'));
     },
 
     // 저장 완료 후 모든 팝업 닫기
@@ -561,6 +538,7 @@ const AreaManager = forwardRef(({
   };
 
   const activeAreaCount = savedAreas.filter(area => area.drawingStatus !== 'D').length;
+  const deletedAreaCount = savedAreas.filter(area => area.drawingStatus === 'D' && !area.areaId.startsWith('temp_')).length;
 
   return (
     <>
@@ -568,23 +546,6 @@ const AreaManager = forwardRef(({
       {openPopups.map(areaId => (
         <PropertyForm key={areaId} areaId={areaId} />
       ))}
-
-      {activeAreaCount > 0 && (
-        <div style={{
-          position: 'absolute',
-          bottom: '10px',
-          right: '10px',
-          background: 'rgba(0, 123, 255, 0.1)',
-          color: '#1976D2',
-          padding: '5px 10px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          border: '1px solid #1976D2',
-          zIndex: 999
-        }}>
-          활성 구역: {activeAreaCount}개
-        </div>
-      )}
 
       {isDeleteMode && (
         <div style={{

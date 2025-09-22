@@ -10,7 +10,8 @@ const App = () => {
   const API_BASE_URL = 'http://localhost:8080';
   
   const [activeTab, setActiveTab] = useState('도면관리');
-  const [selectedArea, setSelectedArea] = useState('구역명 2');
+  const [selectedArea, setSelectedArea] = useState(null);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0); // 추가
 
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
@@ -95,6 +96,23 @@ const App = () => {
     setSelectedArea(area);
   };
 
+  // 구역 변경 후 사이드바 새로고침 트리거
+  const triggerSidebarRefresh = () => {
+    setSidebarRefreshTrigger(prev => prev + 1);
+  };
+
+  // CADDisplay에서 저장 완료 시 호출될 함수
+  const handleSaveComplete = (result) => {
+    console.log('저장 완료:', result);
+    
+    // 저장이 성공했을 때만 사이드바 새로고침
+    if (result.savedCount > 0) {
+      triggerSidebarRefresh();
+    }
+    
+    alert(result.error || result.message || '저장되었습니다.');
+  };
+
   // ------------------ 탭별 렌더링 ------------------
   const renderContent = () => {
     switch(activeTab) {
@@ -107,13 +125,15 @@ const App = () => {
             <Sidebar
               selectedArea={selectedArea}
               handleAreaSelect={handleAreaSelect}
+              modelId={modelId}
+              refreshTrigger={sidebarRefreshTrigger}
             />
             <main className="main-area" style={{flexDirection: 'column', gap: '20px'}}>
               <CADDisplay 
                 cadFilePath={cadFilePath} 
                 cadFileType={cadFileType}
                 modelId={modelId}
-                onSave={() => alert('저장되었습니다.')}
+                onSave={handleSaveComplete}
               />
               <div style={{height: '100px'}}></div>
             </main>
