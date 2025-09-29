@@ -4,7 +4,6 @@ import './DomainTemplete.css';
 import DomainList from './DomainList';
 import DomainForm from './DomainForm';
 
-// ------------------ DomainManagement Component ------------------
 const DomainManagement = ({ onDomainDoubleClick }) => {
   const [domains, setDomains] = useState([]);
   const [selectedDomain, setSelectedDomain] = useState(null);
@@ -119,31 +118,27 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     setPendingFiles({});
   };
 
-  // ==================== 파일 삭제 함수 ====================
   const deleteFileFromServer = async (fileName) => {
     try {
-      console.log('서버에서 파일 삭제 시도:', fileName);
+      console.log('서버에서 파일 삭제:', fileName);
       const response = await axios.delete(`${API_BASE_URL}/api/cad/deleteFile`, {
         params: { fileName: fileName }
       });
       
       if (response.data.success) {
-        console.log('파일 삭제 성공:', fileName);
+        console.log('파일 삭제 성공');
         return true;
-      } else {
-        console.error('파일 삭제 실패:', response.data.message);
-        return false;
       }
+      return false;
     } catch (error) {
-      console.error('파일 삭제 중 오류:', error);
+      console.error('파일 삭제 오류:', error);
       return false;
     }
   };
 
-  // ==================== 전체 구역 삭제 함수 ====================
   const clearAllAreasFromDB = async (modelId) => {
     try {
-      console.log('전체 구역 삭제 시작:', modelId);
+      console.log('전체 구역 삭제:', modelId);
       
       const deleteAllData = {
         drawingStatus: 'D',
@@ -154,14 +149,12 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       const response = await axios.post(`${API_BASE_URL}/api/cad/area/save`, deleteAllData);
       
       if (response.data.success) {
-        console.log('DB에서 전체 구역 삭제 성공');
+        console.log('전체 구역 삭제 성공');
         return true;
-      } else {
-        console.error('DB 전체 삭제 실패:', response.data.message);
-        return false;
       }
+      return false;
     } catch (error) {
-      console.error('전체 삭제 중 오류:', error);
+      console.error('전체 삭제 오류:', error);
       return false;
     }
   };
@@ -174,77 +167,57 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         return; 
       }
 
-      // ==================== 변경사항별 처리 ====================
       for (const d of changedRows) {
         const file = pendingFiles[d.MODEL_ID];
 
-        // 1. 도메인 삭제 시: 파일 + 구역 모두 삭제
         if (d.RowStatus === 'D') {
-          console.log('도메인 삭제 처리:', d.MODEL_ID);
+          console.log('도메인 삭제:', d.MODEL_ID);
           
-          // 파일 삭제
           if (d.FILE_PATH) {
-            const fileDeleted = await deleteFileFromServer(d.FILE_PATH);
-            if (!fileDeleted) {
-              console.warn('파일 삭제 실패, 계속 진행:', d.FILE_PATH);
-            }
+            await deleteFileFromServer(d.FILE_PATH);
           }
           
-          // 관련 구역 삭제
           await clearAllAreasFromDB(d.MODEL_ID);
         }
         
-        // 2. 파일 교체 시: 기존 파일 삭제 + 구역 삭제 확인
         else if (d.RowStatus === 'U' && file) {
-          console.log('파일 교체 처리:', d.MODEL_ID);
+          console.log('파일 교체:', d.MODEL_ID);
           
-          // 기존 도메인 정보 조회
           const originalDomains = await axios.post(`${API_BASE_URL}/api/cad/models/getCadModelList`, {});
           const originalDomain = originalDomains.data.find(orig => orig.MODEL_ID === d.MODEL_ID);
           
           if (originalDomain && originalDomain.FILE_PATH && originalDomain.FILE_PATH !== file.name) {
-            console.log('CAD 파일 변경 감지:', {
-              original: originalDomain.FILE_PATH,
-              new: file.name,
-              modelId: d.MODEL_ID
-            });
-            
-            // 구역 삭제 확인
             const confirmed = window.confirm(
               `CAD 파일이 변경되었습니다.\n` +
               `기존 파일: ${originalDomain.FILE_PATH}\n` +
               `새 파일: ${file.name}\n\n` +
-              `기존 구역 데이터가 새 도면과 맞지 않을 수 있습니다.\n` +
               `모든 구역 데이터를 삭제하고 저장하시겠습니까?`
             );
             
             if (confirmed) {
-              // 기존 파일 삭제
               const fileDeleted = await deleteFileFromServer(originalDomain.FILE_PATH);
               if (!fileDeleted) {
-                alert('기존 파일 삭제에 실패했습니다. 저장을 중단합니다.');
+                alert('기존 파일 삭제 실패');
                 return;
               }
               
-              // 구역 데이터 삭제
               const areasDeleted = await clearAllAreasFromDB(d.MODEL_ID);
               if (!areasDeleted) {
-                alert('구역 삭제 중 오류가 발생했습니다. 저장을 중단합니다.');
+                alert('구역 삭제 실패');
                 return;
               }
             } else {
-              alert('저장을 취소했습니다.');
+              alert('저장 취소');
               return;
             }
           }
         }
       }
 
-      // ==================== 새 파일 업로드 ====================
       for (const d of changedRows) {
         const file = pendingFiles[d.MODEL_ID];
         if (file && d.RowStatus !== 'D') {
-          console.log('새 파일 업로드:', file.name);
+          console.log('파일 업로드:', file.name);
           
           const fileExt = file.name.split('.').pop().toLowerCase();
           const formDataObj = new FormData();
@@ -261,21 +234,19 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
                 headers: { 'Content-Type': 'multipart/form-data' }
               });
             } else {
-              alert(`지원하지 않는 파일 형식입니다: ${fileExt}`);
+              alert(`지원하지 않는 파일 형식: ${fileExt}`);
               return;
             }
             
             d.FILE_PATH = file.name;
-            console.log('파일 업로드 완료:', file.name);
           } catch (uploadError) {
             console.error('파일 업로드 실패:', uploadError);
-            alert('파일 업로드에 실패했습니다: ' + uploadError.message);
+            alert('파일 업로드 실패');
             return;
           }
         }
       }
 
-      // ==================== 도메인 정보 저장 ====================
       const payload = changedRows.map(d => ({
         MODEL_ID: d.MODEL_ID,
         MODEL_NM: d.MODEL_NM || '',
@@ -287,23 +258,20 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         RowStatus: d.RowStatus
       }));
 
-      console.log('도메인 정보 저장:', payload);
       await axios.post(`${API_BASE_URL}/api/cad/models/saveCadModelList`, payload);
       
-      alert('변경사항과 파일이 서버에 저장되었습니다.');
+      alert('저장 완료');
       
-      // 상태 초기화
       setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '' });
       setSelectedDomain(null);
       setPendingFiles({});
       setUploadedFiles([]);
       
-      // 도메인 목록 새로고침
       await fetchDomains();
       
     } catch (e) { 
-      console.error('저장 중 오류', e); 
-      alert('저장 중 오류가 발생했습니다: ' + e.message); 
+      console.error('저장 오류', e); 
+      alert('저장 중 오류'); 
     }
   };
 
@@ -312,90 +280,24 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     alert('조회 완료'); 
   };
 
-  // ------------------ 도메인 더블클릭 (convertAndGetDxf 사용) ------------------
-  const handleDomainDoubleClick = async (domain) => {
-    console.log('DomainManagement: 도메인 더블클릭 시작');
-    console.log('파일 경로:', domain.FILE_PATH);
-    console.log('MODEL_ID:', domain.MODEL_ID);
+  // ==================== ABViewer 제거, Aspose로 직접 처리 ====================
+  const handleDomainDoubleClick = (domain) => {
+    console.log('도메인 더블클릭:', domain.FILE_PATH);
     
     if (!domain.FILE_PATH) {
       alert('파일 경로가 없습니다.');
       return;
     }
 
-    let finalData = { ...domain };
+    // DXF든 DWF든 Aspose가 직접 파싱
+    const finalData = {
+      ...domain,
+      MODEL_ID: domain.MODEL_ID,
+      cadFilePath: domain.FILE_PATH,
+      fileType: domain.FILE_PATH.toLowerCase().endsWith('.dwf') ? 'dwf' : 'dxf'
+    };
 
-    if (domain.FILE_PATH.toLowerCase().endsWith('.dwf')) {
-      sessionStorage.setItem('conversionRequested', 'true');
-      sessionStorage.setItem('conversionFile', domain.FILE_PATH);
-      sessionStorage.setItem('conversionSource', 'dwf_conversion');
-      sessionStorage.setItem('conversionModelId', domain.MODEL_ID);
-
-      try {
-        console.log('DWF 변환 시작:', domain.FILE_PATH);
-
-        const response = await axios.get(`${API_BASE_URL}/api/cad/convertAndGetDxf`, {
-          params: { fileName: domain.FILE_PATH }
-        });
-
-        console.log('변환 API 응답 status:', response.status);
-        console.log('DXF 내용 길이:', response.data?.length);
-
-        if (!response.data || response.data.length < 10) {
-          console.warn('DXF 내용이 비어있음');
-          alert('DWF 변환 결과가 없습니다.');
-          sessionStorage.removeItem('conversionRequested');
-          sessionStorage.removeItem('conversionFile');
-          sessionStorage.removeItem('conversionSource');
-          sessionStorage.removeItem('conversionModelId');
-          return;
-        }
-
-        if (!response.data.includes('SECTION') && !response.data.includes('HEADER')) {
-          console.warn('올바른 DXF 형식이 아님');
-          alert('변환된 내용이 올바른 DXF 형식이 아닙니다.');
-          sessionStorage.removeItem('conversionRequested');
-          sessionStorage.removeItem('conversionFile');
-          sessionStorage.removeItem('conversionSource');
-          sessionStorage.removeItem('conversionModelId');
-          return;
-        }
-
-        const blob = new Blob([response.data], { type: 'text/plain; charset=utf-8' });
-        const blobUrl = URL.createObjectURL(blob);
-        console.log('DWF 변환 완료, blob URL 생성:', blobUrl);
-
-        finalData = {
-          ...domain,
-          MODEL_ID: domain.MODEL_ID,
-          cadFilePath: blobUrl,
-          fileType: 'dxf',
-          isConverted: true
-        };
-
-      } catch (e) {
-        console.error('DWF 변환 실패:', e);
-        alert('DWF 변환 실패: ' + e.message);
-        sessionStorage.removeItem('conversionRequested');
-        sessionStorage.removeItem('conversionFile');
-        sessionStorage.removeItem('conversionSource');
-        sessionStorage.removeItem('conversionModelId');
-        return;
-      }
-    } else {
-      console.log('DXF 파일 - 변환 플래그 설정하지 않음');
-      
-      finalData = {
-        ...domain,
-        MODEL_ID: domain.MODEL_ID,
-        cadFilePath: domain.FILE_PATH,
-        fileType: 'dxf',
-        isConverted: false
-      };
-    }
-
-    console.log('App.js로 전달할 데이터:', finalData);
-    console.log('전달되는 MODEL_ID:', finalData.MODEL_ID);
+    console.log('App.js로 전달:', finalData);
     onDomainDoubleClick(finalData);
   };
 

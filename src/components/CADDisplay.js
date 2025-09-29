@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState } from "react";
-import DxfParser from "dxf-parser";
 import AreaDrawing from "./AreaDrawing";
 import AreaManager from "./AreaManager";
 
@@ -8,7 +7,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
   const areaManagerRef = useRef(null);
   const areaDrawingRef = useRef(null);
 
-  const [dxfData, setDxfData] = useState(null);
+  const [cadData, setCadData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scale, setScale] = useState(1);
@@ -18,310 +17,289 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
   const [currentModelId, setCurrentModelId] = useState(null);
   const [completedAreas, setCompletedAreas] = useState([]);
 
-  const MAX_RETRIES = 15;
-  const RETRY_DELAY = 3000;
+  useEffect(() => { 
+    if (modelId) setCurrentModelId(modelId); 
+  }, [modelId]);
 
-  useEffect(() => { if (modelId) setCurrentModelId(modelId); }, [modelId]);
-  useEffect(() => { if (currentModelId) loadSavedAreas(currentModelId); }, [currentModelId]);
-
-  const cleanupTempFile = async (fileName) => {
-    if (cadFileType !== 'dwf') {
-      console.log('DWF 파일이 아니므로 임시 파일 삭제 생략. 파일타입:', cadFileType);
-      return;
-    }
-
-    try {
-      console.log('임시 DXF 파일 삭제 요청:', fileName);
-      const response = await fetch(`http://localhost:8080/api/cad/cleanupTempFile?fileName=${encodeURIComponent(fileName)}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('임시 파일 삭제 결과:', result);
-      } else {
-        console.error('임시 파일 삭제 실패:', response.status);
-      }
-    } catch (error) {
-      console.error('임시 파일 삭제 중 오류:', error);
-    }
-  };
+  useEffect(() => { 
+    if (currentModelId) loadSavedAreas(currentModelId); 
+  }, [currentModelId]);
 
   const renderEntity = (ctx, entity) => {
     ctx.strokeStyle = "#333333";
     ctx.lineWidth = 1 / ctx.getTransform().a;
-    switch (entity.type) {
-      case "LINE": renderLine(ctx, entity); break;
-      case "POLYLINE":
-      case "LWPOLYLINE": renderPolyline(ctx, entity); break;
-      case "CIRCLE": renderCircle(ctx, entity); break;
-      case "ARC": renderArc(ctx, entity); break;
-      case "TEXT": renderText(ctx, entity); break;
-      case "INSERT": break;
-      default: console.log("지원하지 않는 엔티티 타입:", entity.type);
-    }
-  };
 
-  const renderLine = (ctx, entity) => {
-    if (entity.vertices?.length >= 2) { 
-      ctx.beginPath(); 
-      ctx.moveTo(entity.vertices[0].x, -entity.vertices[0].y); 
-      ctx.lineTo(entity.vertices[1].x, -entity.vertices[1].y); 
-      ctx.stroke(); 
-    }
-  };
+    const type = entity.type;
 
-  const renderPolyline = (ctx, entity) => {
-    if (!entity.vertices || entity.vertices.length < 2) return;
-    ctx.beginPath(); 
-    ctx.moveTo(entity.vertices[0].x, -entity.vertices[0].y);
-    for (let i = 1; i < entity.vertices.length; i++) {
-      ctx.lineTo(entity.vertices[i].x, -entity.vertices[i].y);
-    }
-    if (entity.shape) ctx.closePath(); 
-    ctx.stroke();
-  };
-
-  const renderCircle = (ctx, entity) => { 
-    if (entity.center && entity.radius) { 
-      ctx.beginPath(); 
-      ctx.arc(entity.center.x, -entity.center.y, entity.radius, 0, 2 * Math.PI); 
-      ctx.stroke(); 
-    } 
-  };
-
-  const renderArc = (ctx, entity) => {
-    if (entity.center && entity.radius) {
-      let startAngle = entity.startAngle || 0;
-      let endAngle = entity.endAngle || 360;
-      if (endAngle > 7 || endAngle < -7) { 
-        startAngle = (startAngle * Math.PI) / 180; 
-        endAngle = (endAngle * Math.PI) / 180; 
-      }
-      const angleDiff = Math.abs(endAngle - startAngle);
+    // DWF Ellipse
+    if ((type === "DwfWhipOutlineEllipse" || type === "DwfWhipFilledEllipse") && entity.centerX !== undefined) {
+      ctx.save();
+      ctx.translate(entity.centerX, -entity.centerY);
+      ctx.rotate((entity.rotation || 0) * Math.PI / 180);
+      ctx.scale(entity.majorRadius, entity.minorRadius);
       ctx.beginPath();
-      if (angleDiff >= 2 * Math.PI - 0.01 || angleDiff <= 0.01) {
-        ctx.arc(entity.center.x, -entity.center.y, entity.radius, 0, 2 * Math.PI);
+      ctx.arc(0, 0, 1, 0, 2 * Math.PI);
+      
+      if (entity.filled) {
+        ctx.fillStyle = "#333333";
+        ctx.fill();
       } else {
-        ctx.arc(entity.center.x, -entity.center.y, entity.radius, startAngle, endAngle);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // DWF Polyline
+    else if (type === "DwfWhipPolyline" && entity.points?.length > 0) {
+      ctx.beginPath();
+      ctx.moveTo(entity.points[0].x, -entity.points[0].y);
+      for (let i = 1; i < entity.points.length; i++) {
+        ctx.lineTo(entity.points[i].x, -entity.points[i].y);
       }
       ctx.stroke();
     }
+    // DWF Polygon
+    else if (type === "DwfWhipPolygon" && entity.points?.length > 0) {
+      ctx.beginPath();
+      ctx.moveTo(entity.points[0].x, -entity.points[0].y);
+      for (let i = 1; i < entity.points.length; i++) {
+        ctx.lineTo(entity.points[i].x, -entity.points[i].y);
+      }
+      if (entity.closed) ctx.closePath();
+      ctx.stroke();
+    }
+    // DXF Line
+    else if (type === "CadLine" && entity.startX !== undefined) {
+      ctx.beginPath();
+      ctx.moveTo(entity.startX, -entity.startY);
+      ctx.lineTo(entity.endX, -entity.endY);
+      ctx.stroke();
+    }
+    // DXF Circle
+    else if (type === "CadCircle" && entity.centerX !== undefined) {
+      ctx.beginPath();
+      ctx.arc(entity.centerX, -entity.centerY, entity.radius, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+    // DXF Arc
+    else if (type === "CadArc" && entity.centerX !== undefined) {
+      let startAngle = entity.startAngle || 0;
+      let endAngle = entity.endAngle || 360;
+      
+      if (endAngle > 7 || endAngle < -7) {
+        startAngle = (startAngle * Math.PI) / 180;
+        endAngle = (endAngle * Math.PI) / 180;
+      }
+      
+      ctx.beginPath();
+      ctx.arc(entity.centerX, -entity.centerY, entity.radius, startAngle, endAngle);
+      ctx.stroke();
+    }
+    // DXF LWPolyline
+    else if (type === "CadLwPolyline" && entity.points?.length > 0) {
+      ctx.beginPath();
+      ctx.moveTo(entity.points[0].x, -entity.points[0].y);
+      for (let i = 1; i < entity.points.length; i++) {
+        ctx.lineTo(entity.points[i].x, -entity.points[i].y);
+      }
+      if (entity.closed) ctx.closePath();
+      ctx.stroke();
+    }
+    // DXF Text
+    else if (type === "CadText" && entity.text) {
+      ctx.save();
+      ctx.fillStyle = "#333333";
+      ctx.font = `${entity.height || 10}px Arial`;
+      ctx.fillText(entity.text, entity.x, -entity.y);
+      ctx.restore();
+    }
+    // DXF MText
+    else if (type === "CadMText" && entity.text) {
+      ctx.save();
+      ctx.fillStyle = "#333333";
+      ctx.font = `${entity.height || 10}px Arial`;
+      ctx.fillText(entity.text, entity.x, -entity.y);
+      ctx.restore();
+    }
   };
 
-  const renderText = (ctx, entity) => { 
-    if (entity.startPoint && entity.text) { 
-      ctx.save(); 
-      ctx.fillStyle = "#333333"; 
-      ctx.font = `${entity.textHeight || 10}px Arial`; 
-      ctx.fillText(entity.text, entity.startPoint.x, -entity.startPoint.y); 
-      ctx.restore(); 
-    } 
-  };
-  
   const renderCADModelOnly = (currentScale = scale, currentOffset = offset) => {
-    console.log('🖼️ renderCADModelOnly 시작', { currentScale, currentOffset });
-    const canvas = canvasRef.current; 
-    if (!canvas || !dxfData || !dxfData.entities) {
-      console.log('❌ renderCADModelOnly 중단 - canvas:', !!canvas, 'dxfData:', !!dxfData);
+    console.log('🖼️ renderCADModelOnly 시작');
+    const canvas = canvasRef.current;
+    if (!canvas || !cadData || !cadData.entities) {
+      console.log('❌ 렌더링 중단 - 데이터 없음');
       return;
     }
-    
+
     const ctx = canvas.getContext("2d");
-    
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
-    console.log('📏 Canvas 크기 설정:', rect.width, 'x', rect.height);
-    
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log('🧹 Canvas 전체 클리어 완료');
-    
-    ctx.fillStyle = "#e6f3ff"; 
+    ctx.fillStyle = "#e6f3ff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    console.log('🎨 배경 그리기 완료');
-    
-    ctx.save(); 
-    ctx.translate(currentOffset.x, currentOffset.y); 
-    ctx.scale(currentScale, currentScale); 
-    dxfData.entities.forEach((entity) => renderEntity(ctx, entity)); 
+
+    ctx.save();
+    ctx.translate(currentOffset.x, currentOffset.y);
+    ctx.scale(currentScale, currentScale);
+    cadData.entities.forEach((entity) => renderEntity(ctx, entity));
     ctx.restore();
-    console.log('✅ CAD 모델 렌더링 완료 - 엔터티 수:', dxfData.entities.length);
+    
+    console.log('✅ CAD 모델 렌더링 완료 - 엔티티 수:', cadData.entities.length);
   };
 
   const handleRedrawCanvas = () => {
-    console.log('🔄 Canvas 전체 재그리기 요청');
-    
-    console.log('🚀 1단계: CAD 모델 다시 그리기 시작');
+    console.log('🔄 Canvas 전체 재그리기');
     renderCADModelOnly();
-    console.log('✅ 1단계: CAD 모델 렌더링 완료');
     
     if (areaManagerRef.current) {
-      console.log('✅ AreaManager 참조 존재함');
       setTimeout(() => {
-        console.log('🎨 2단계: redrawAreasOnly 호출 시작');
-        try {
-          areaManagerRef.current.redrawAreasOnly();
-          console.log('✅ 2단계: redrawAreasOnly 완료');
-        } catch (error) {
-          console.error('❌ redrawAreasOnly 에러:', error);
-        }
+        areaManagerRef.current.redrawAreasOnly();
       }, 10);
-    } else {
-      console.log('❌ AreaManager 참조가 null임');
     }
   };
 
-  const renderDXF = (dxfData, currentScale = scale, currentOffset = offset) => {
-    renderCADModelOnly(currentScale, currentOffset);
-  };
+  const loadFile = async (fileName) => {
+    setLoading(true);
+    setError(null);
 
-  const loadFile = async (filePathOrBlobUrl, retryCount = 0) => {
-    if (retryCount === 0) { 
-      setLoading(true); 
-      setError(null); 
-    }
-    
     try {
-      let dxfText;
-      let isFromAPI = false;
+      console.log('📂 Aspose로 파일 로드 시작:', fileName);
       
-      if (filePathOrBlobUrl.startsWith("blob:")) {
-        const res = await fetch(filePathOrBlobUrl); 
-        const buffer = await res.arrayBuffer(); 
-        dxfText = new TextDecoder("utf-8").decode(buffer);
+      const apiUrl = `http://localhost:8080/api/cad/parseWithAspose`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: fileName })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('서버 에러 응답:', errorText);
+        throw new Error(`API 요청 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Aspose 파싱 완료:', data);
+
+      setCadData(data);
+
+      const bounds = calculateBounds(data.entities);
+      if (bounds) {
+        const autoScale = calculateScale(bounds, 900, 400);
+        const autoOffset = calculateOffset(bounds, 900, 400, autoScale);
+        setScale(autoScale);
+        setOffset(autoOffset);
+        
+        setTimeout(() => renderCADModelOnly(autoScale, autoOffset), 0);
       } else {
-        isFromAPI = true;
-        const apiUrl = `http://localhost:8080/api/cad/convertAndGetDxf?fileName=${filePathOrBlobUrl}`;
-        const res = await fetch(apiUrl); 
-        if (!res.ok) throw new Error(`API 요청 실패: ${res.status}`); 
-        dxfText = await res.text();
+        setTimeout(() => renderCADModelOnly(), 0);
       }
-      
-      const parser = new DxfParser(); 
-      const dxf = parser.parseSync(dxfText); 
-      setDxfData(dxf);
-      
-      const bounds = calculateBounds(dxf.entities);
-      if (bounds) { 
-        const autoScale = calculateScale(bounds, 900, 400); 
-        const autoOffset = calculateOffset(bounds, 900, 400, autoScale); 
-        setScale(autoScale); 
-        setOffset(autoOffset); 
-        renderDXF(dxf, autoScale, autoOffset); 
-      } else {
-        renderDXF(dxf);
-      }
-      
-      if (isFromAPI && retryCount === 0 && cadFileType === 'dwf') {
-        console.log('CAD 로딩 완료, 임시 파일 삭제 시도:', filePathOrBlobUrl);
-        setTimeout(() => {
-          cleanupTempFile(filePathOrBlobUrl);
-        }, 1000);
-      }
-      
+
     } catch (err) {
-      console.error(err);
-      if (err.message.includes("EOF group not read") && retryCount < MAX_RETRIES) {
-        setTimeout(() => loadFile(filePathOrBlobUrl, retryCount + 1), RETRY_DELAY);
-      } else {
-        setError(err.message);
-      }
-    } finally { 
-      if (retryCount === 0) setLoading(false); 
+      console.error('❌ 파일 로드 실패:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const calculateBounds = (entities) => {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; 
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let hasValidCoords = false;
-    
-    entities.forEach((entity) => { 
-      const coords = getEntityCoordinates(entity); 
-      coords.forEach((coord) => { 
-        if (typeof coord.x === "number" && typeof coord.y === "number") { 
-          minX = Math.min(minX, coord.x); 
-          minY = Math.min(minY, coord.y); 
-          maxX = Math.max(maxX, coord.x); 
-          maxY = Math.max(maxY, coord.y); 
-          hasValidCoords = true; 
-        } 
-      }); 
+
+    entities.forEach((entity) => {
+      const coords = getEntityCoordinates(entity);
+      coords.forEach((coord) => {
+        if (typeof coord.x === "number" && typeof coord.y === "number") {
+          minX = Math.min(minX, coord.x);
+          minY = Math.min(minY, coord.y);
+          maxX = Math.max(maxX, coord.x);
+          maxY = Math.max(maxY, coord.y);
+          hasValidCoords = true;
+        }
+      });
     });
-    
+
     return hasValidCoords ? { minX, minY, maxX, maxY } : null;
   };
 
   const getEntityCoordinates = (entity) => {
     const coords = [];
-    switch (entity.type) {
-      case "LINE": 
-        if (entity.vertices?.length >= 2) coords.push(...entity.vertices); 
-        break;
-      case "POLYLINE":
-      case "LWPOLYLINE": 
-        if (entity.vertices) coords.push(...entity.vertices); 
-        break;
-      case "CIRCLE":
-      case "ARC": 
-        if (entity.center) { 
-          const r = entity.radius || 0; 
-          coords.push(
-            { x: entity.center.x - r, y: entity.center.y - r }, 
-            { x: entity.center.x + r, y: entity.center.y + r }
-          ); 
-        } 
-        break;
-      case "TEXT": 
-        if (entity.startPoint) coords.push(entity.startPoint); 
-        break;
-      case "INSERT": 
-        if (entity.position) coords.push(entity.position); 
-        else if (entity.insertionPoint) coords.push(entity.insertionPoint); 
-        else if (entity.x !== undefined && entity.y !== undefined) coords.push({ x: entity.x, y: entity.y }); 
-        break;
+    const type = entity.type;
+
+    // DWF Ellipse
+    if ((type === "DwfWhipOutlineEllipse" || type === "DwfWhipFilledEllipse") && entity.centerX !== undefined) {
+      const r = Math.max(entity.majorRadius, entity.minorRadius);
+      coords.push(
+        { x: entity.centerX - r, y: entity.centerY - r },
+        { x: entity.centerX + r, y: entity.centerY + r }
+      );
     }
+    // DWF Polyline/Polygon
+    else if ((type === "DwfWhipPolyline" || type === "DwfWhipPolygon") && entity.points) {
+      coords.push(...entity.points);
+    }
+    // DXF Line
+    else if (type === "CadLine" && entity.startX !== undefined) {
+      coords.push({ x: entity.startX, y: entity.startY });
+      coords.push({ x: entity.endX, y: entity.endY });
+    } 
+    // DXF Circle/Arc
+    else if ((type === "CadCircle" || type === "CadArc") && entity.centerX !== undefined) {
+      const r = entity.radius || 0;
+      coords.push(
+        { x: entity.centerX - r, y: entity.centerY - r },
+        { x: entity.centerX + r, y: entity.centerY + r }
+      );
+    } 
+    // DXF LWPolyline
+    else if (type === "CadLwPolyline" && entity.points) {
+      coords.push(...entity.points);
+    } 
+    // DXF Text/MText
+    else if ((type === "CadText" || type === "CadMText") && entity.x !== undefined) {
+      coords.push({ x: entity.x, y: entity.y });
+    }
+
     return coords;
   };
 
-  const calculateScale = (bounds, canvasWidth, canvasHeight) => { 
-    const dxfWidth = bounds.maxX - bounds.minX; 
-    const dxfHeight = bounds.maxY - bounds.minY; 
-    if (!dxfWidth || !dxfHeight) return 1; 
-    
-    const scaleX = (canvasWidth * 0.6) / dxfWidth; 
-    const scaleY = (canvasHeight * 0.6) / dxfHeight; 
+  const calculateScale = (bounds, canvasWidth, canvasHeight) => {
+    const dxfWidth = bounds.maxX - bounds.minX;
+    const dxfHeight = bounds.maxY - bounds.minY;
+    if (!dxfWidth || !dxfHeight) return 1;
+
+    const scaleX = (canvasWidth * 0.6) / dxfWidth;
+    const scaleY = (canvasHeight * 0.6) / dxfHeight;
     return Math.max(
-      Math.min(scaleX, scaleY), 
+      Math.min(scaleX, scaleY),
       (Math.min(canvasWidth, canvasHeight) / Math.max(dxfWidth, dxfHeight)) * 0.1
-    ); 
+    );
   };
 
-  const calculateOffset = (bounds, canvasWidth, canvasHeight, scale) => { 
-    const dxfWidth = bounds.maxX - bounds.minX; 
-    const dxfHeight = bounds.maxY - bounds.minY; 
-    const scaledWidth = dxfWidth * scale; 
-    const scaledHeight = dxfHeight * scale; 
-    
-    return { 
-      x: (canvasWidth - scaledWidth) / 2 - bounds.minX * scale, 
-      y: canvasHeight - (canvasHeight - scaledHeight) / 2 + bounds.minY * scale 
-    }; 
+  const calculateOffset = (bounds, canvasWidth, canvasHeight, scale) => {
+    const dxfWidth = bounds.maxX - bounds.minX;
+    const dxfHeight = bounds.maxY - bounds.minY;
+    const scaledWidth = dxfWidth * scale;
+    const scaledHeight = dxfHeight * scale;
+
+    return {
+      x: (canvasWidth - scaledWidth) / 2 - bounds.minX * scale,
+      y: canvasHeight - (canvasHeight - scaledHeight) / 2 + bounds.minY * scale
+    };
   };
 
   const loadSavedAreas = async (modelId) => {
     try {
-      console.log('저장된 구역 데이터 로드 시작:', modelId);
-      const response = await fetch(`http://localhost:8080/api/cad/area/list/${modelId}`, { 
-        method: 'GET', 
-        headers: { 'Content-Type': 'application/json' } 
-      });
-      
+      console.log('저장된 구역 데이터 로드:', modelId);
+      const response = await fetch(`http://localhost:8080/api/cad/area/list/${modelId}`);
+
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.areas && result.areas.length > 0) {
-          console.log('DB에서 로드된 구역 수:', result.areas.length);
-          
+          console.log('로드된 구역 수:', result.areas.length);
+
           result.areas.forEach(areaData => {
             const coordinates = areaData.coordinates
               .sort((a, b) => a.pointOrder - b.pointOrder)
@@ -338,143 +316,124 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
             }
           });
 
-          const loadedCoordinates = result.areas.map(area => 
+          const loadedCoordinates = result.areas.map(area =>
             area.coordinates
               .sort((a, b) => a.pointOrder - b.pointOrder)
               .map(coord => ({ x: coord.x, y: coord.y }))
           );
           setCompletedAreas(loadedCoordinates);
         }
-      } else {
-        console.log('저장된 구역 로드 실패:', response.status);
       }
-    } catch (error) { 
-      console.error('구역 데이터 로드 중 오류:', error); 
+    } catch (error) {
+      console.error('구역 로드 오류:', error);
     }
   };
 
   useEffect(() => {
-    const canvas = canvasRef.current; 
-    if (!canvas || !dxfData) return;
-    
+    const canvas = canvasRef.current;
+    if (!canvas || !cadData) return;
+
     let isMouseDown = false, mouseX = 0, mouseY = 0;
-    
-    const handleWheel = (event) => { 
-      event.preventDefault(); 
-      const rect = canvas.getBoundingClientRect(); 
-      const mouseCanvasX = event.clientX - rect.left; 
-      const mouseCanvasY = event.clientY - rect.top; 
-      const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1; 
-      const newScale = scale * zoomFactor; 
-      const newOffset = { 
-        x: mouseCanvasX - (mouseCanvasX - offset.x) * zoomFactor, 
-        y: mouseCanvasY - (mouseCanvasY - offset.y) * zoomFactor 
-      }; 
-      setScale(newScale); 
-      setOffset(newOffset); 
-      
+
+    const handleWheel = (event) => {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseCanvasX = event.clientX - rect.left;
+      const mouseCanvasY = event.clientY - rect.top;
+      const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = scale * zoomFactor;
+      const newOffset = {
+        x: mouseCanvasX - (mouseCanvasX - offset.x) * zoomFactor,
+        y: mouseCanvasY - (mouseCanvasY - offset.y) * zoomFactor
+      };
+      setScale(newScale);
+      setOffset(newOffset);
+
       renderCADModelOnly(newScale, newOffset);
       if (areaManagerRef.current) {
         requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
       }
     };
-    
-    const handleMouseDown = (event) => { 
-      if (isPenMode || isDeleteMode) return; 
-      isMouseDown = true; 
-      mouseX = event.clientX; 
-      mouseY = event.clientY; 
+
+    const handleMouseDown = (event) => {
+      if (isPenMode || isDeleteMode) return;
+      isMouseDown = true;
+      mouseX = event.clientX;
+      mouseY = event.clientY;
     };
-    
-    const handleMouseMove = (event) => { 
-      if (isPenMode || isDeleteMode || !isMouseDown) return; 
-      const deltaX = event.clientX - mouseX; 
-      const deltaY = event.clientY - mouseY; 
-      const newOffset = { x: offset.x + deltaX, y: offset.y + deltaY }; 
-      setOffset(newOffset); 
-      mouseX = event.clientX; 
-      mouseY = event.clientY; 
-      
+
+    const handleMouseMove = (event) => {
+      if (isPenMode || isDeleteMode || !isMouseDown) return;
+      const deltaX = event.clientX - mouseX;
+      const deltaY = event.clientY - mouseY;
+      const newOffset = { x: offset.x + deltaX, y: offset.y + deltaY };
+      setOffset(newOffset);
+      mouseX = event.clientX;
+      mouseY = event.clientY;
+
       renderCADModelOnly(scale, newOffset);
       if (areaManagerRef.current) {
         requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
       }
     };
-    
+
     const handleMouseUp = () => { isMouseDown = false; };
-    
+
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     canvas.addEventListener("mousedown", handleMouseDown);
     canvas.addEventListener("mousemove", handleMouseMove);
     canvas.addEventListener("mouseup", handleMouseUp);
     canvas.addEventListener("mouseleave", handleMouseUp);
-    
-    return () => { 
-      canvas.removeEventListener("wheel", handleWheel); 
-      canvas.removeEventListener("mousedown", handleMouseDown); 
-      canvas.removeEventListener("mousemove", handleMouseMove); 
-      canvas.removeEventListener("mouseup", handleMouseUp); 
-      canvas.removeEventListener("mouseleave", handleMouseUp); 
-    };
-  }, [dxfData, scale, offset, isPenMode, isDeleteMode]);
 
-  useEffect(() => {
     return () => {
-      if (cadFilePath && !cadFilePath.startsWith("blob:") && cadFileType === 'dwf') {
-        console.log('컴포넌트 언마운트 - 임시 파일 정리:', cadFilePath);
-        cleanupTempFile(cadFilePath);
-      }
+      canvas.removeEventListener("wheel", handleWheel);
+      canvas.removeEventListener("mousedown", handleMouseDown);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mouseup", handleMouseUp);
+      canvas.removeEventListener("mouseleave", handleMouseUp);
     };
-  }, [cadFilePath, cadFileType]);
+  }, [cadData, scale, offset, isPenMode, isDeleteMode]);
 
-  const handlePenMode = () => { 
-    const newPen = !isPenMode; 
-    setIsPenMode(newPen); 
-    if (newPen) setIsDeleteMode(false); 
+  const handlePenMode = () => {
+    const newPen = !isPenMode;
+    setIsPenMode(newPen);
+    if (newPen) setIsDeleteMode(false);
   };
 
-  const handleEraser = () => { 
-    const newDel = !isDeleteMode; 
-    setIsDeleteMode(newDel); 
-    if (newDel) setIsPenMode(false); 
+  const handleEraser = () => {
+    const newDel = !isDeleteMode;
+    setIsDeleteMode(newDel);
+    if (newDel) setIsPenMode(false);
   };
 
-  const handleFitToView = () => { 
-    if (dxfData) { 
-      const bounds = calculateBounds(dxfData.entities); 
-      if (bounds) { 
-        const s = calculateScale(bounds, 900, 400); 
-        const o = calculateOffset(bounds, 900, 400, s); 
-        setScale(s); 
-        setOffset(o); 
+  const handleFitToView = () => {
+    if (cadData) {
+      const bounds = calculateBounds(cadData.entities);
+      if (bounds) {
+        const s = calculateScale(bounds, 900, 400);
+        const o = calculateOffset(bounds, 900, 400, s);
+        setScale(s);
+        setOffset(o);
         renderCADModelOnly(s, o);
         if (areaManagerRef.current) {
           requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
         }
-      } 
-    } 
+      }
+    }
   };
 
-  const handleAreaComplete = (coordinates) => { 
-    setCompletedAreas(prev => [...prev, coordinates]); 
-    if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates); 
+  const handleAreaComplete = (coordinates) => {
+    setCompletedAreas(prev => [...prev, coordinates]);
+    if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates);
   };
 
-  const handleAreasChange = (areas) => { 
-    console.log('🔄 구역 변경 감지:', areas.length);
+  const handleAreasChange = (areas) => {
+    console.log('구역 변경:', areas.length);
     setCompletedAreas(areas.map(a => a.coordinates));
   };
 
   const handleSaveJSON = async () => {
-    if (!currentModelId) {
-      console.log('모델 ID가 없습니다.');
-      return;
-    }
-
-    if (!areaManagerRef.current) {
-      console.log('AreaManager 참조가 없습니다.');
-      return;
-    }
+    if (!currentModelId || !areaManagerRef.current) return;
 
     const hasIncompleteArea = areaDrawingRef.current?.hasIncompleteArea();
     if (hasIncompleteArea) {
@@ -482,9 +441,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       if (confirmed) {
         areaDrawingRef.current?.clearClickedPoints();
         handleRedrawCanvas();
-        console.log('미완성 구역 지움 - 저장 계속 진행');
       } else {
-        console.log('저장 취소됨');
         return;
       }
     }
@@ -492,11 +449,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     try {
       const newAreasToSave = areaManagerRef.current.getAreasToSave();
       const editingAreasToSave = areaManagerRef.current.getEditingAreasForSave();
-      const deletedAreasToSave = areaManagerRef.current.getDeletedAreasForSave(); // 삭제된 구역들
+      const deletedAreasToSave = areaManagerRef.current.getDeletedAreasForSave();
 
       let savedCount = 0;
 
-      // 새 구역 저장 - 편집 데이터 반영
       for (const area of newAreasToSave) {
         const calculateArea = (coords) => {
           if (coords.length < 3) return 0.0;
@@ -510,7 +466,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           return Math.abs(area / 2.0);
         };
 
-        // 편집 중인 데이터가 있으면 그걸 사용
         const editData = editingAreasToSave.find(editArea => editArea.areaId === area.areaId);
         const finalAreaData = editData || area;
 
@@ -522,10 +477,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           areaSize: Math.round(calculateArea(area.coordinates)),
           areaStyle: "SOLID",
           drawingStatus: 'I',
-          coordinates: area.coordinates.map((pt, order) => ({ 
-            pointOrder: order + 1, 
-            x: Math.round(pt.x * 1000) / 1000, 
-            y: Math.round(pt.y * 1000) / 1000 
+          coordinates: area.coordinates.map((pt, order) => ({
+            pointOrder: order + 1,
+            x: Math.round(pt.x * 1000) / 1000,
+            y: Math.round(pt.y * 1000) / 1000
           }))
         };
 
@@ -535,15 +490,9 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           body: JSON.stringify(areaData)
         });
 
-        if (response.ok) {
-          console.log(`새 구역 저장 성공`);
-          savedCount++;
-        } else {
-          console.error(`새 구역 저장 실패:`, response.status);
-        }
+        if (response.ok) savedCount++;
       }
 
-      // 편집된 구역 저장
       for (const area of editingAreasToSave) {
         const areaData = {
           areaId: area.areaId,
@@ -560,15 +509,9 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           body: JSON.stringify(areaData)
         });
 
-        if (response.ok) {
-          console.log(`편집된 구역 업데이트 성공: ${area.areaId}`);
-          savedCount++;
-        } else {
-          console.error(`편집된 구역 업데이트 실패: ${area.areaId}`, response.status);
-        }
+        if (response.ok) savedCount++;
       }
 
-      // 삭제된 구역 저장 (새로 추가)
       for (const area of deletedAreasToSave) {
         const deleteData = {
           areaId: area.areaId,
@@ -581,15 +524,9 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           body: JSON.stringify(deleteData)
         });
 
-        if (response.ok) {
-          console.log(`구역 삭제 성공: ${area.areaId}`);
-          savedCount++;
-        } else {
-          console.error(`구역 삭제 실패: ${area.areaId}`, response.status);
-        }
+        if (response.ok) savedCount++;
       }
 
-      // 변경사항 적용
       if (editingAreasToSave.length > 0) {
         areaManagerRef.current.applyEditingChanges();
       }
@@ -599,7 +536,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       }
 
       if (deletedAreasToSave.length > 0) {
-        areaManagerRef.current.clearDeletedAreas(); // 삭제된 구역들 실제 제거
+        areaManagerRef.current.clearDeletedAreas();
       }
 
       if (savedCount > 0) {
@@ -610,30 +547,32 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       }
 
       const totalChanges = newAreasToSave.length + editingAreasToSave.length + deletedAreasToSave.length;
-      
+
       if (onSave) {
-        onSave({ 
-          savedCount, 
-          totalAreas: totalChanges, 
-          message: totalChanges === 0 
-            ? '저장할 변경사항이 없습니다.' 
-            : `${savedCount}개 항목이 성공적으로 저장되었습니다.` 
+        onSave({
+          savedCount,
+          totalAreas: totalChanges,
+          message: totalChanges === 0
+            ? '저장할 변경사항이 없습니다.'
+            : `${savedCount}개 항목이 성공적으로 저장되었습니다.`
         });
       }
 
     } catch (error) {
-      console.error('저장 중 오류:', error);
+      console.error('저장 오류:', error);
       if (onSave) {
-        onSave({ 
-          savedCount: 0, 
-          totalAreas: 0, 
-          error: '저장 중 오류가 발생했습니다.' 
+        onSave({
+          savedCount: 0,
+          totalAreas: 0,
+          error: '저장 중 오류가 발생했습니다.'
         });
       }
     }
   };
 
-  useEffect(() => { if (cadFilePath) loadFile(cadFilePath); }, [cadFilePath]);
+  useEffect(() => {
+    if (cadFilePath) loadFile(cadFilePath);
+  }, [cadFilePath]);
 
   return (
     <div className="cad-display-panel">
@@ -650,15 +589,13 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             zIndex: 1000,
-            textAlign: 'center',
-            fontSize: '16px',
-            color: '#1976D2'
+            textAlign: 'center'
           }}>
-            <div style={{ marginBottom: '10px' }}>로딩 중...</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>CAD 파일을 불러오고 있습니다.</div>
+            <div>로딩 중...</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>CAD 파일 파싱 중...</div>
           </div>
         )}
-        
+
         {error && (
           <div style={{
             position: 'absolute',
@@ -670,13 +607,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
             padding: '20px',
             borderRadius: '8px',
             border: '2px solid #FF0000',
-            zIndex: 1000,
-            textAlign: 'center',
-            fontSize: '16px',
-            fontWeight: 'bold'
+            zIndex: 1000
           }}>
-            <div style={{ marginBottom: '10px' }}>오류 발생</div>
-            <div style={{ fontSize: '14px', fontWeight: 'normal' }}>{error}</div>
+            <div>오류 발생</div>
+            <div style={{ fontSize: '14px' }}>{error}</div>
           </div>
         )}
 
@@ -685,37 +619,59 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           <button className={`tool-button eraser-button ${isDeleteMode ? 'active' : ''}`} onClick={handleEraser} disabled={loading}>🧽</button>
           <button className="tool-button magnifier" onClick={handleFitToView} disabled={loading}></button>
         </div>
-        {onSave && <button onClick={handleSaveJSON} disabled={loading} style={{ position: 'absolute', bottom: '60px', right: '50px', background: loading ? '#ccc' : '#1976D2', color: 'white', padding: '10px 20px', borderRadius: '4px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px', zIndex: 20 }}>저장</button>}
+
+        {onSave && (
+          <button
+            onClick={handleSaveJSON}
+            disabled={loading}
+            style={{
+              position: 'absolute',
+              bottom: '60px',
+              right: '50px',
+              background: loading ? '#ccc' : '#1976D2',
+              color: 'white',
+              padding: '10px 20px',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              zIndex: 20
+            }}
+          >
+            저장
+          </button>
+        )}
+
         <div className="cad-canvas" style={{ position: 'relative', opacity: loading ? 0.5 : 1 }}>
-          <canvas 
-            ref={canvasRef} 
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              display: 'block', 
-              cursor: isPenMode ? 'crosshair' : (isDeleteMode ? 'pointer' : 'default') 
-            }} 
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              cursor: isPenMode ? 'crosshair' : (isDeleteMode ? 'pointer' : 'default')
+            }}
           />
-          <AreaDrawing 
+          <AreaDrawing
             ref={areaDrawingRef}
-            canvasRef={canvasRef} 
-            isPenMode={isPenMode} 
-            dxfData={dxfData} 
-            scale={scale} 
-            offset={offset} 
-            onAreaComplete={handleAreaComplete} 
+            canvasRef={canvasRef}
+            isPenMode={isPenMode}
+            dxfData={cadData}
+            scale={scale}
+            offset={offset}
+            onAreaComplete={handleAreaComplete}
             completedAreas={completedAreas}
             onRedrawCanvas={handleRedrawCanvas}
           />
-          <AreaManager 
-            ref={areaManagerRef} 
-            canvasRef={canvasRef} 
-            modelId={currentModelId} 
-            scale={scale} 
-            offset={offset} 
-            onAreasChange={handleAreasChange} 
-            isDeleteMode={isDeleteMode} 
-            isPenMode={isPenMode} 
+          <AreaManager
+            ref={areaManagerRef}
+            canvasRef={canvasRef}
+            modelId={currentModelId}
+            scale={scale}
+            offset={offset}
+            onAreasChange={handleAreasChange}
+            isDeleteMode={isDeleteMode}
+            isPenMode={isPenMode}
             onRequestCADRedraw={renderCADModelOnly}
           />
         </div>
