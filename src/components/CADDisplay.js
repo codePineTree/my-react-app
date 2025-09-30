@@ -27,7 +27,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
   const renderEntity = (ctx, entity) => {
     ctx.strokeStyle = "#333333";
-    ctx.lineWidth = 1 / ctx.getTransform().a;
+    const baseLineWidth = 1 / ctx.getTransform().a;  // ✅ 기본 선 굵기 계산
 
     const type = entity.type;
 
@@ -37,6 +37,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       ctx.translate(entity.centerX, -entity.centerY);
       ctx.rotate((entity.rotation || 0) * Math.PI / 180);
       ctx.scale(entity.majorRadius, entity.minorRadius);
+      
+      // ✅ scale 후에 lineWidth 재설정 (scale 보정)
+      ctx.lineWidth = baseLineWidth / Math.min(entity.majorRadius, entity.minorRadius);
+      
       ctx.beginPath();
       ctx.arc(0, 0, 1, 0, 2 * Math.PI);
       
@@ -50,6 +54,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
     // DWF Polyline
     else if (type === "DwfWhipPolyline" && entity.points?.length > 0) {
+      ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
       ctx.moveTo(entity.points[0].x, -entity.points[0].y);
       for (let i = 1; i < entity.points.length; i++) {
@@ -59,6 +64,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
     // DWF Polygon
     else if (type === "DwfWhipPolygon" && entity.points?.length > 0) {
+      ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
       ctx.moveTo(entity.points[0].x, -entity.points[0].y);
       for (let i = 1; i < entity.points.length; i++) {
@@ -69,6 +75,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
     // DXF Line
     else if (type === "CadLine" && entity.startX !== undefined) {
+      ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
       ctx.moveTo(entity.startX, -entity.startY);
       ctx.lineTo(entity.endX, -entity.endY);
@@ -76,12 +83,14 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
     // DXF Circle
     else if (type === "CadCircle" && entity.centerX !== undefined) {
+      ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
       ctx.arc(entity.centerX, -entity.centerY, entity.radius, 0, 2 * Math.PI);
       ctx.stroke();
     }
     // DXF Arc
     else if (type === "CadArc" && entity.centerX !== undefined) {
+      ctx.lineWidth = baseLineWidth;
       let startAngle = entity.startAngle || 0;
       let endAngle = entity.endAngle || 360;
       
@@ -96,6 +105,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
     // DXF LWPolyline
     else if (type === "CadLwPolyline" && entity.points?.length > 0) {
+      ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
       ctx.moveTo(entity.points[0].x, -entity.points[0].y);
       for (let i = 1; i < entity.points.length; i++) {
@@ -554,7 +564,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
           totalAreas: totalChanges,
           message: totalChanges === 0
             ? '저장할 변경사항이 없습니다.'
-            : `${savedCount}개 항목이 성공적으로 저장되었습니다.`
+            : '저장되었습니다.'
         });
       }
 
