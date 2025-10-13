@@ -1,7 +1,7 @@
 999
 The file was created in CADSoftTools software
 999
-
+ABViewer 15; 
   0
 SECTION
   2
@@ -193,7 +193,7 @@ STANDARD
   9
 $HANDSEED
   5
-000000000000004D
+0000000000000044
   9
 $FILLETRAD
  40
@@ -205,15 +205,15 @@ $INSUNITS
   9
 $EXTMIN
  10
-2447
+4070
  20
-3317
+2730
   9
 $EXTMAX
  10
-3885
+4996
  20
-4755
+3656
   9
 $LIMMIN
  10
@@ -301,15 +301,15 @@ $LWDISPLAY
   9
 $TDCREATE
  40
-2460929.69045439
+2460928.75612843
   9
 $TDINDWG
  40
-1.33101851851852E-6
+0.000151319444444444
   9
 $TDUPDATE
  40
-2460929.69045572
+2460928.75627975
   0
 ENDSEC
   0
@@ -407,13 +407,13 @@ TABLE
   2
 APPID
   5
-2D
+29
 100
 AcDbSymbolTable
   0
 APPID
   5
-2E
+2A
 100
 AcDbSymbolTableRecord
 100
@@ -437,7 +437,7 @@ CSTINVENTORY
   0
 APPID
   5
-2F
+2B
 100
 AcDbSymbolTableRecord
 100
@@ -449,7 +449,7 @@ AcDbAttr
   0
 APPID
   5
-30
+2C
 100
 AcDbSymbolTableRecord
 100
@@ -465,7 +465,7 @@ TABLE
   2
 BLOCK_RECORD
   5
-31
+2D
 100
 AcDbSymbolTable
   0
@@ -481,7 +481,7 @@ AcDbBlockTableRecord
   0
 BLOCK_RECORD
   5
-32
+2E
 100
 AcDbSymbolTableRecord
 100
@@ -491,7 +491,7 @@ AcDbBlockTableRecord
   0
 BLOCK_RECORD
   5
-1A
+16
 100
 AcDbSymbolTableRecord
 100
@@ -501,7 +501,7 @@ _CLOSEDFILLED
   0
 BLOCK_RECORD
   5
-1D
+19
 100
 AcDbSymbolTableRecord
 100
@@ -511,7 +511,7 @@ ABViewer_RedLine
   0
 BLOCK_RECORD
   5
-2C
+28
 100
 AcDbSymbolTableRecord
 100
@@ -531,7 +531,7 @@ AcDbSymbolTable
   0
 STYLE
   5
-15
+11
 100
 AcDbSymbolTableRecord
 100
@@ -567,7 +567,7 @@ AcDbSymbolTable
   0
 LTYPE
   5
-14
+10
 100
 AcDbSymbolTableRecord
 100
@@ -587,7 +587,7 @@ CONTINUOUS
   0
 LTYPE
   5
-12
+E
 100
 AcDbSymbolTableRecord
 100
@@ -607,7 +607,7 @@ BYLAYER
   0
 LTYPE
   5
-13
+F
 100
 AcDbSymbolTableRecord
 100
@@ -627,7 +627,7 @@ BYBLOCK
   0
 LTYPE
   5
-1E
+1A
 100
 AcDbSymbolTableRecord
 100
@@ -663,7 +663,7 @@ _ _
   0
 LTYPE
   5
-1F
+1B
 100
 AcDbSymbolTableRecord
 100
@@ -691,7 +691,7 @@ _
   0
 LTYPE
   5
-20
+1C
 100
 AcDbSymbolTableRecord
 100
@@ -719,7 +719,7 @@ ISO dot
   0
 LTYPE
   5
-21
+1D
 100
 AcDbSymbolTableRecord
 100
@@ -755,7 +755,7 @@ _ .
   0
 LTYPE
   5
-22
+1E
 100
 AcDbSymbolTableRecord
 100
@@ -799,7 +799,7 @@ _ . .
   0
 LTYPE
   5
-23
+1F
 100
 AcDbSymbolTableRecord
 100
@@ -851,7 +851,7 @@ _ . . .
   0
 LTYPE
   5
-24
+20
 100
 AcDbSymbolTableRecord
 100
@@ -915,13 +915,13 @@ TABLE
   2
 VPORT
   5
-33
+2F
 100
 AcDbSymbolTable
   0
 VPORT
   5
-34
+30
 100
 AcDbSymbolTableRecord
 100
@@ -939,9 +939,9 @@ AcDbViewportTableRecord
  21
 1
  12
-3166
+4533.66237482117
  22
-4036
+3192.33762517883
  32
 0
  13
@@ -969,9 +969,9 @@ AcDbViewportTableRecord
  37
 0
  40
-1438
+927.324749642346
  41
-1
+2.35714285714286
  42
 50
  43
@@ -981,7 +981,7 @@ AcDbViewportTableRecord
  50
 0
  51
-0
+8.53773646251594E-7
  71
 0
  72
@@ -1005,7 +1005,7 @@ TABLE
   2
 VIEW
   5
-35
+31
 100
 AcDbSymbolTable
   0
@@ -1015,7 +1015,7 @@ TABLE
   2
 UCS
   5
-36
+32
 100
 AcDbSymbolTable
   0
@@ -1037,7 +1037,7 @@ AcDbDimStyleTable
   0
 DIMSTYLE
 105
-16
+12
 100
 AcDbSymbolTableRecord
 100
@@ -1101,7 +1101,7 @@ STANDARD
 276
 0
 340
-15
+11
 371
 -1
 372
@@ -1117,7 +1117,7 @@ BLOCKS
   0
 BLOCK
   5
-37
+33
 100
 AcDbEntity
   8
@@ -1135,7 +1135,7 @@ AcDbBlockBegin
   0
 ENDBLK
   5
-38
+34
 100
 AcDbEntity
   8
@@ -1145,7 +1145,7 @@ AcDbBlockEnd
   0
 BLOCK
   5
-39
+35
 100
 AcDbEntity
   8
@@ -1163,7 +1163,7 @@ AcDbBlockBegin
   0
 ENDBLK
   5
-3A
+36
 100
 AcDbEntity
   8
@@ -1173,7 +1173,7 @@ AcDbBlockEnd
   0
 BLOCK
   5
-19
+15
 100
 AcDbEntity
   8
@@ -1197,7 +1197,7 @@ _CLOSEDFILLED
   0
 SOLID
   5
-17
+13
 100
 AcDbEntity
   8
@@ -1235,7 +1235,7 @@ AcDbTrace
   0
 LINE
   5
-18
+14
 100
 AcDbEntity
   8
@@ -1261,7 +1261,7 @@ AcDbLine
   0
 ENDBLK
   5
-3B
+37
 100
 AcDbEntity
   8
@@ -1271,7 +1271,7 @@ AcDbBlockEnd
   0
 BLOCK
   5
-1C
+18
 100
 AcDbEntity
   8
@@ -1295,7 +1295,7 @@ ABViewer_RedLine
   0
 ENDBLK
   5
-3C
+38
 100
 AcDbEntity
   8
@@ -1305,7 +1305,7 @@ AcDbBlockEnd
   0
 BLOCK
   5
-2B
+27
 100
 AcDbEntity
   8
@@ -1329,7 +1329,7 @@ ABViewer
   0
 MTEXT
   5
-26
+22
 100
 AcDbEntity
   8
@@ -1365,7 +1365,7 @@ STANDARD
   0
 ENDBLK
   5
-3D
+39
 100
 AcDbEntity
   8
@@ -1379,7 +1379,7 @@ SECTION
   2
 ENTITIES
   0
-POLYLINE
+ARC
   5
 D
 100
@@ -1389,121 +1389,25 @@ AcDbEntity
   6
 BYLAYER
 100
-AcDb3dPolyline
- 66
-1
+AcDbCircle
  10
-0
+4533
  20
-0
+3193
  30
 0
- 70
-8
  40
+463
+100
+AcDbArc
+ 50
 0
- 41
-0
-  0
-VERTEX
-  5
-3E
-100
-AcDbEntity
-  8
-0
-100
-AcDbVertex
-  6
-BYLAYER
-100
-AcDb3dPolylineVertex
- 10
-2447
- 20
-3317
- 30
-0
- 70
-32
-  0
-VERTEX
-  5
-3F
-100
-AcDbEntity
-  8
-0
-100
-AcDbVertex
-  6
-BYLAYER
-100
-AcDb3dPolylineVertex
- 10
-3166
- 20
-4755
- 30
-0
- 70
-32
-  0
-VERTEX
-  5
-40
-100
-AcDbEntity
-  8
-0
-100
-AcDbVertex
-  6
-BYLAYER
-100
-AcDb3dPolylineVertex
- 10
-3885
- 20
-3317
- 30
-0
- 70
-32
-  0
-VERTEX
-  5
-41
-100
-AcDbEntity
-  8
-0
-100
-AcDbVertex
-  6
-BYLAYER
-100
-AcDb3dPolylineVertex
- 10
-2447
- 20
-3317
- 30
-0
- 70
-32
-  0
-SEQEND
-  5
-42
-100
-AcDbEntity
-  8
-0
+ 51
+360
   0
 INSERT
   5
-43
+3A
 100
 AcDbEntity
   8
@@ -1517,15 +1421,15 @@ BYLAYER
   2
 ABViewer
  10
-3405.66666666667
+4687.33333333333
  20
-3339.50859742463
+2744.49440974632
  30
 0
  41
-219.541984732824
+141.374045801527
  42
-219.541984732824
+141.374045801527
  43
 1
   0
@@ -1537,29 +1441,29 @@ OBJECTS
   0
 DICTIONARY
   5
-44
+3B
 100
 AcDbDictionary
   3
 ACAD_GROUP
 350
-45
+3C
   3
 ACAD_MATERIAL
 350
-46
+3D
   3
 ACAD_WIPEOUT_VARS
 350
-47
+3E
   3
 ACAD_MLINESTYLE
 350
-48
+3F
   3
 ACAD_LAYOUT
 350
-49
+40
   3
 Model
 350
@@ -1567,25 +1471,25 @@ Model
   0
 DICTIONARY
   5
-45
+3C
 330
-44
+3B
 100
 AcDbDictionary
   0
 DICTIONARY
   5
-46
+3D
 330
-44
+3B
 100
 AcDbDictionary
   0
 WIPEOUTVARIABLES
   5
-47
+3E
 330
-44
+3B
 100
 AcDbWipeoutVariables
  70
@@ -1593,19 +1497,19 @@ AcDbWipeoutVariables
   0
 DICTIONARY
   5
-48
+3F
 330
-44
+3B
 100
 AcDbDictionary
   3
 STANDARD
 350
-4A
+41
   0
 MLINESTYLE
   5
-4A
+41
 100
 AcDbMlineStyle
   2
@@ -1637,7 +1541,7 @@ ByLayer
   0
 DICTIONARY
   5
-49
+40
 100
 AcDbDictionary
 281
@@ -1649,11 +1553,11 @@ LAYOUT
 102
 {ACAD_REACTORS
 330
-49
+40
 102
 }
 330
-49
+40
 100
 AcDbPlotSettings
   1
@@ -1707,13 +1611,13 @@ ISO_A4_(210.00_x_297.00_MM)
 142
 1
 143
-7.37435897435897
+4.74871794871795
 147
 1
 148
--2447
+-4070
 149
--3317
+-2730
 100
 AcDbLayout
   1
@@ -1723,13 +1627,13 @@ Model
  71
 1
  10
-2447
+4070
  20
-3317
+2730
  11
-3885
+4996
  21
-4755
+3656
  12
 0
  22
@@ -1737,15 +1641,15 @@ Model
  32
 0
  14
-2447
+4070
  24
-3317
+2730
  34
 0
  15
-3885
+4996
  25
-4755
+3656
  35
 0
 146
@@ -1775,7 +1679,7 @@ C
   0
 DICTIONARY
   5
-4B
+42
 100
 AcDbDictionary
 280
@@ -1783,19 +1687,19 @@ AcDbDictionary
   3
 XINFO
 360
-4C
+43
   0
 XRECORD
   5
-4C
+43
 102
 {ACAD_REACTORS
 330
-4B
+42
 102
 }
 330
-4B
+42
 100
 AcDbXrecord
 280
@@ -1803,7 +1707,7 @@ AcDbXrecord
 310
 0B00000002000F00
 311
-9F7FA31D471EF4A8
+9CC12BA0B85997E6
   0
 ENDSEC
   0
