@@ -12,7 +12,9 @@ const AreaDrawing = forwardRef(({
 }, ref) => {
   
   const [clickedPoints, setClickedPoints] = useState([]);
+  const [pointsOnBoundary, setPointsOnBoundary] = useState([]);
   const CLOSE_DISTANCE = 15;
+  const BOUNDARY_THRESHOLD = 10; // 외곽선 판정 거리 (픽셀)
 
   useImperativeHandle(ref, () => ({
     hasIncompleteArea: () => {
@@ -25,6 +27,7 @@ const AreaDrawing = forwardRef(({
     
     clearClickedPoints: () => {
       setClickedPoints([]);
+      setPointsOnBoundary([]);
     }
   }));
 
@@ -88,6 +91,77 @@ const AreaDrawing = forwardRef(({
       Math.pow(point.x - center.x, 2) + Math.pow(point.y - center.y, 2)
     );
     return distance <= radius;
+  };
+
+  // 점-선분 거리 계산
+  const pointToSegmentDistance = (point, segStart, segEnd) => {
+    const A = point.x - segStart.x;
+    const B = point.y - segStart.y;
+    const C = segEnd.x - segStart.x;
+    const D = segEnd.y - segStart.y;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+
+    if (param < 0) {
+      xx = segStart.x;
+      yy = segStart.y;
+    } else if (param > 1) {
+      xx = segEnd.x;
+      yy = segEnd.y;
+    } else {
+      xx = segStart.x + param * C;
+      yy = segStart.y + param * D;
+    }
+
+    const dx = point.x - xx;
+    const dy = point.y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // 점이 외곽선 위에 있는지 확인 (캔버스 좌표 기준)
+  const isPointOnBoundary = (worldPoint) => {
+    const closedAreas = getClosedAreas();
+    
+    for (const area of closedAreas) {
+      if (area.type === 'polygon') {
+        const vertices = area.vertices;
+        
+        for (let i = 0; i < vertices.length; i++) {
+          const start = vertices[i];
+          const end = vertices[(i + 1) % vertices.length];
+          
+          const distance = pointToSegmentDistance(worldPoint, start, end);
+          const canvasDistance = distance * scale; // 월드 좌표를 캔버스 거리로 변환
+          
+          if (canvasDistance <= BOUNDARY_THRESHOLD) {
+            console.log(`✅ 외곽선 위 점 감지: 거리 ${canvasDistance.toFixed(2)}px`);
+            return true;
+          }
+        }
+      }
+      // 원의 경우 외곽선 체크
+      else if (area.type === 'circle') {
+        const distance = Math.sqrt(
+          Math.pow(worldPoint.x - area.center.x, 2) + 
+          Math.pow(worldPoint.y - area.center.y, 2)
+        );
+        const radiusDiff = Math.abs(distance - area.radius);
+        const canvasRadiusDiff = radiusDiff * scale;
+        
+        if (canvasRadiusDiff <= BOUNDARY_THRESHOLD) {
+          console.log(`✅ 원 외곽선 위 점 감지: 거리 ${canvasRadiusDiff.toFixed(2)}px`);
+          return true;
+        }
+      }
+    }
+    
+    return false;
   };
 
   const getClosedAreas = () => {
@@ -335,9 +409,22 @@ const AreaDrawing = forwardRef(({
     }
 
     const newPoints = [...clickedPoints, worldCoord];
-    setClickedPoints(newPoints);
+    const isOnBoundary = isPointOnBoundary(worldCoord);
+    const newBoundaryFlags = [...pointsOnBoundary, isOnBoundary];
     
-    console.log(`점 추가: (${worldCoord.x.toFixed(2)}, ${worldCoord.y.toFixed(2)}) - 총 ${newPoints.length}개`);
+    setClickedPoints(newPoints);
+    setPointsOnBoundary(newBoundaryFlags);
+    
+    console.log(`점 추가: (${worldCoord.x.toFixed(2)}, ${worldCoord.y.toFixed(2)}) - 총 ${newPoints.length}개, 외곽선 위: ${isOnBoundary}`);
+    
+    // 외곽선 위 점이 2개 이상이면 자동 완성
+    const boundaryCount = newBoundaryFlags.filter(flag => flag).length;
+    if (boundaryCount >= 2 && newPoints.length >= 3) {
+      console.log(`🎯 외곽선 위 점 ${boundaryCount}개 감지 + 총 ${newPoints.length}개 점 - 자동 완성!`);
+      setTimeout(() => {
+        completeArea();
+      }, 100);
+    }
   };
 
   const completeArea = () => {
@@ -353,6 +440,7 @@ const AreaDrawing = forwardRef(({
     
     onAreaComplete([...clickedPoints]);
     setClickedPoints([]);
+    setPointsOnBoundary([]);
   };
 
   const renderClickedPoints = () => {
@@ -367,15 +455,18 @@ const AreaDrawing = forwardRef(({
     ctx.save();
     
     console.log('🟢 점들을 초록색 원으로 그리기 시작');
-    ctx.fillStyle = '#00AA00';
     clickedPoints.forEach((point, index) => {
       const canvasCoord = worldToCanvasCoord(point);
+      const isOnBoundary = pointsOnBoundary[index];
+      
+      // 외곽선 위 점은 파란색, 일반 점은 초록색
+      ctx.fillStyle = isOnBoundary ? '#0066FF' : '#00AA00';
       ctx.beginPath();
       ctx.arc(canvasCoord.x, canvasCoord.y, 4, 0, 2 * Math.PI);
       ctx.fill();
       
       if (index === 0 && clickedPoints.length >= 3) {
-        ctx.strokeStyle = '#00AA00';
+        ctx.strokeStyle = isOnBoundary ? '#0066FF' : '#00AA00';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(canvasCoord.x, canvasCoord.y, 8, 0, 2 * Math.PI);
@@ -421,15 +512,8 @@ const AreaDrawing = forwardRef(({
   useEffect(() => {
     console.log('🔄 렌더링 트리거 - isPenMode:', isPenMode, 'clickedPoints.length:', clickedPoints.length);
     if (isPenMode) {
-      const timeoutId = setTimeout(() => {
-        console.log('⏱️ 딜레이 후 renderClickedPoints 호출');
-        renderClickedPoints();
-      }, 10);
-      
-      return () => {
-        console.log('🧹 렌더링 타이머 클리어');
-        clearTimeout(timeoutId);
-      };
+      console.log('⏱️ renderClickedPoints 호출');
+      renderClickedPoints();
     }
   }, [clickedPoints, isPenMode, scale, offset]);
 
@@ -440,7 +524,9 @@ const AreaDrawing = forwardRef(({
           console.log('🔍 ESC 키 눌림 - 마지막 점 제거 시작');
           
           const newPoints = clickedPoints.slice(0, -1);
+          const newBoundaryFlags = pointsOnBoundary.slice(0, -1);
           setClickedPoints(newPoints);
+          setPointsOnBoundary(newBoundaryFlags);
           console.log(`ESC: 마지막 점 제거`);
           
           console.log('🧹 Canvas 완전 지우기 및 재그리기');
@@ -463,6 +549,7 @@ const AreaDrawing = forwardRef(({
     if (!isPenMode && clickedPoints.length > 0) {
       console.log('펜 모드 해제 - 클릭된 점들 초기화');
       setClickedPoints([]);
+      setPointsOnBoundary([]);
     }
   }, [isPenMode]);
 
@@ -484,6 +571,7 @@ const AreaDrawing = forwardRef(({
           <div>• 닫힌 도형 내부만 클릭 가능</div>
           <div>• 완성된 구역({completedAreas?.length || 0}개) 내부는 클릭 불가</div>
           <div>• 클릭: 점 추가 ({clickedPoints.length}개)</div>
+          <div>• 외곽선 위 점 2개 이상: 자동 완성 (파란색)</div>
           <div>• 첫 번째 점 근처 클릭: 구역 완성</div>
           <div>• ESC: 마지막 점 되돌리기</div>
         </div>

@@ -256,10 +256,13 @@ const AreaManager = forwardRef(({
   const renderSavedAreas = () => {
     if (onRequestCADRedraw) {
       onRequestCADRedraw();
-    }
-    requestAnimationFrame(() => {
+      // CAD 그리기 완료 후 구역 그리기 (setTimeout으로 순서 보장)
+      setTimeout(() => {
+        renderAreasOnly();
+      }, 0);
+    } else {
       renderAreasOnly();
-    });
+    }
   };
 
   useImperativeHandle(ref, () => ({
@@ -417,8 +420,8 @@ const AreaManager = forwardRef(({
 
     const handleMouseDown = (e) => {
       if (e.target.closest('.drag-handle')) {
-        e.preventDefault(); // 기본 동작 방지
-        e.stopPropagation(); // 이벤트 전파 방지
+        e.preventDefault();
+        e.stopPropagation();
         
         setIsDragging(true);
         setDragOffset({
@@ -427,7 +430,6 @@ const AreaManager = forwardRef(({
         });
         bringToFront(areaId);
         
-        // 드래그 이벤트 핸들러 등록
         const handleMouseMove = (e) => {
           e.preventDefault();
           e.stopPropagation();
