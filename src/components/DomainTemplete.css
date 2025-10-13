@@ -338,4 +338,35 @@
   .domain-form-buttons-inline {
     justify-content: flex-start;
   }
+  .file-select-button {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+}
+
+.file-select-button:hover {
+  background: #e0e0e0;
+}
+
+/* 파일 input의 "선택된 파일 없음" 텍스트 숨김 */
+.file-upload-section input[type="file"] {
+  width: 100px; /* 버튼 크기만큼만 */
+  color: transparent;
+}
+
+.file-upload-section input[type="file"]::-webkit-file-upload-button {
+  visibility: visible;
+  color: black;
+}
+
+/* Firefox */
+.file-upload-section input[type="file"]::file-selector-button {
+  visibility: visible;
+}
+
 }

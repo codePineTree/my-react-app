@@ -2,9 +2,12 @@ import React from 'react';
 import './DomainTemplete.css';
 
 const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selectedDomain, onFileChange, uploadedFiles }) => {
+  const handleButtonClick = () => {
+    document.getElementById('file-input').click();
+  };
+
   return (
     <div className="domain-form-section">
-      {/* 헤더 */}
       <div className="domain-form-header">
         <h2 className="domain-form-title">도면 정보</h2>
       </div>
@@ -74,13 +77,39 @@ const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selected
           {/* 4행: 도면 파일 + 버튼 */}
           <div className="domain-form-row domain-form-full domain-form-file-row">
             <label className="domain-form-label">도면 파일</label>
-            <div className="file-upload-section">
-              <input type="file" multiple onChange={onFileChange} />
-              <div className="uploaded-files">
-                {uploadedFiles && uploadedFiles.map((file, idx) => (
-                  <div key={idx}>{file.name}</div>
-                ))}
-              </div>
+
+            <div className="file-upload-section" style={{ position: 'relative', display: 'inline-block' }}>
+              {/* 실제 input (완전히 숨김) */}
+              <input 
+                id="file-input"
+                type="file" 
+                onChange={onFileChange} 
+                accept=".dwf,.dxf"
+                style={{ display: 'none' }}
+              />
+              
+              {/* 보이는 커스텀 버튼 */}
+              <button 
+                type="button" 
+                onClick={handleButtonClick}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #ccc',
+                  background: '#f5f5f5',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                파일 선택
+              </button>
+
+              {/* 파일명 표시 */}
+              {uploadedFiles?.length > 0 && 
+                uploadedFiles.map((file, idx) => (
+                  <span key={idx} style={{ marginLeft: '10px' }}>{file.name}</span>
+                ))
+              }
             </div>
 
             {/* 버튼 그룹 */}

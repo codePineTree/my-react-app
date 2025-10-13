@@ -12,7 +12,8 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     buildingName: '', 
     area: '', 
     version: '', 
-    description: '' 
+    description: '',
+    FILE_PATH: ''  // ⭐ 추가
   });
   const [pendingFiles, setPendingFiles] = useState({});
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -45,7 +46,8 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       buildingName: domain.BUILDING_NM || '',
       area: domain.MODEL_SIZE != null ? String(domain.MODEL_SIZE) : '',
       version: domain.VERSION_INFO || '',
-      description: domain.MODEL_DESC || ''
+      description: domain.MODEL_DESC || '',
+      FILE_PATH: domain.FILE_PATH || ''  // ⭐ 추가
     });
     const files = domain.FILE_PATH ? [{ name: domain.FILE_PATH, isDB: true }] : [];
     setUploadedFiles(files);
@@ -102,7 +104,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     };
     setDomains(prev => [...prev, newDomain]);
     setSelectedDomain(newDomain);
-    setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '' });
+    setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '', FILE_PATH: '' });  // ⭐ FILE_PATH 추가
     setUploadedFiles([]);
     setPendingFiles({});
   };
@@ -113,7 +115,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       d.MODEL_ID === selectedDomain.MODEL_ID ? { ...d, RowStatus: 'D' } : d
     ));
     setSelectedDomain(null);
-    setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '' });
+    setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '', FILE_PATH: '' });  // ⭐ FILE_PATH 추가
     setUploadedFiles([]);
     setPendingFiles({});
   };
@@ -262,7 +264,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       
       alert('저장 완료');
       
-      setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '' });
+      setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '', FILE_PATH: '' });  // ⭐ FILE_PATH 추가
       setSelectedDomain(null);
       setPendingFiles({});
       setUploadedFiles([]);
@@ -280,7 +282,6 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     alert('조회 완료'); 
   };
 
-  // ==================== ABViewer 제거, Aspose로 직접 처리 ====================
   const handleDomainDoubleClick = (domain) => {
     console.log('도메인 더블클릭:', domain.FILE_PATH);
     
@@ -289,7 +290,6 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       return;
     }
 
-    // DXF든 DWF든 Aspose가 직접 파싱
     const finalData = {
       ...domain,
       MODEL_ID: domain.MODEL_ID,
