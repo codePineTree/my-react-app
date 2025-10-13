@@ -312,7 +312,7 @@ const AreaManager = forwardRef(({
         coordinates: coordinates,
         areaName: `구역_${tempAreaCount + 1}`,
         areaDesc: '',
-        areaColor: '#FF0000', // 빨간색으로 바꿔서 확인
+        areaColor: '#CCCCCC', // 회색으로 변경
         drawingStatus: 'I'
       };
 
