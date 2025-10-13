@@ -286,7 +286,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     console.log('도메인 더블클릭:', domain.FILE_PATH);
     
     if (!domain.FILE_PATH) {
-      alert('파일 경로가 없습니다.');
+      alert('저장된 CAD 파일이 없습니다.');
       return;
     }
 
