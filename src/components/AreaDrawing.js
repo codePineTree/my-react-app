@@ -124,9 +124,11 @@ const AreaDrawing = forwardRef(({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // 점이 외곽선 위에 있는지 확인 (캔버스 좌표 기준)
+  // 점이 외곽선 위에 있는지 확인 + 보정된 좌표 반환
   const isPointOnBoundary = (worldPoint) => {
     const closedAreas = getClosedAreas();
+    let closestPoint = null;
+    let minDistance = Infinity;
     
     for (const area of closedAreas) {
       if (area.type === 'polygon') {
@@ -136,32 +138,69 @@ const AreaDrawing = forwardRef(({
           const start = vertices[i];
           const end = vertices[(i + 1) % vertices.length];
           
-          const distance = pointToSegmentDistance(worldPoint, start, end);
-          const canvasDistance = distance * scale; // 월드 좌표를 캔버스 거리로 변환
+          // 점-선분 거리 및 가장 가까운 점 계산
+          const A = worldPoint.x - start.x;
+          const B = worldPoint.y - start.y;
+          const C = end.x - start.x;
+          const D = end.y - start.y;
+
+          const dot = A * C + B * D;
+          const lenSq = C * C + D * D;
+          let param = -1;
+
+          if (lenSq !== 0) param = dot / lenSq;
+
+          let xx, yy;
+
+          if (param < 0) {
+            xx = start.x;
+            yy = start.y;
+          } else if (param > 1) {
+            xx = end.x;
+            yy = end.y;
+          } else {
+            xx = start.x + param * C;
+            yy = start.y + param * D;
+          }
+
+          const distance = Math.sqrt(
+            Math.pow(worldPoint.x - xx, 2) + 
+            Math.pow(worldPoint.y - yy, 2)
+          );
+          const canvasDistance = distance * scale;
           
-          if (canvasDistance <= BOUNDARY_THRESHOLD) {
-            console.log(`✅ 외곽선 위 점 감지: 거리 ${canvasDistance.toFixed(2)}px`);
-            return true;
+          if (canvasDistance <= BOUNDARY_THRESHOLD && distance < minDistance) {
+            minDistance = distance;
+            closestPoint = { x: xx, y: yy };
           }
         }
       }
       // 원의 경우 외곽선 체크
       else if (area.type === 'circle') {
-        const distance = Math.sqrt(
-          Math.pow(worldPoint.x - area.center.x, 2) + 
-          Math.pow(worldPoint.y - area.center.y, 2)
-        );
+        const dx = worldPoint.x - area.center.x;
+        const dy = worldPoint.y - area.center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
         const radiusDiff = Math.abs(distance - area.radius);
         const canvasRadiusDiff = radiusDiff * scale;
         
-        if (canvasRadiusDiff <= BOUNDARY_THRESHOLD) {
-          console.log(`✅ 원 외곽선 위 점 감지: 거리 ${canvasRadiusDiff.toFixed(2)}px`);
-          return true;
+        if (canvasRadiusDiff <= BOUNDARY_THRESHOLD && radiusDiff < minDistance) {
+          minDistance = radiusDiff;
+          // 원 위의 정확한 점 계산
+          const angle = Math.atan2(dy, dx);
+          closestPoint = {
+            x: area.center.x + area.radius * Math.cos(angle),
+            y: area.center.y + area.radius * Math.sin(angle)
+          };
         }
       }
     }
     
-    return false;
+    if (closestPoint) {
+      console.log(`✅ 외곽선 위 점 감지 및 보정: (${worldPoint.x.toFixed(2)}, ${worldPoint.y.toFixed(2)}) -> (${closestPoint.x.toFixed(2)}, ${closestPoint.y.toFixed(2)})`);
+      return { isOnBoundary: true, correctedPoint: closestPoint };
+    }
+    
+    return { isOnBoundary: false, correctedPoint: null };
   };
 
   const getClosedAreas = () => {
@@ -409,20 +448,27 @@ const AreaDrawing = forwardRef(({
     }
 
     const newPoints = [...clickedPoints, worldCoord];
-    const isOnBoundary = isPointOnBoundary(worldCoord);
+    const boundaryCheck = isPointOnBoundary(worldCoord);
+    const isOnBoundary = boundaryCheck.isOnBoundary;
+    
+    console.log('🔍 boundaryCheck 결과:', boundaryCheck);
+    
+    // 외곽선 위 점이면 보정된 좌표 사용
+    const finalPoint = isOnBoundary ? boundaryCheck.correctedPoint : worldCoord;
+    const finalPoints = [...clickedPoints, finalPoint];
     const newBoundaryFlags = [...pointsOnBoundary, isOnBoundary];
     
-    console.log(`점 추가: (${worldCoord.x.toFixed(2)}, ${worldCoord.y.toFixed(2)}) - 총 ${newPoints.length}개, 외곽선 위: ${isOnBoundary}`);
+    console.log(`점 추가: 원본(${worldCoord.x.toFixed(2)}, ${worldCoord.y.toFixed(2)}) -> 최종(${finalPoint.x.toFixed(2)}, ${finalPoint.y.toFixed(2)}) - 총 ${finalPoints.length}개, 외곽선 위: ${isOnBoundary}`);
     
     // 외곽선 위 점이 2개 이상이면 자동 완성
     const boundaryCount = newBoundaryFlags.filter(flag => flag).length;
-    if (boundaryCount >= 2 && newPoints.length >= 3) {
+    if (boundaryCount >= 2 && finalPoints.length >= 3) {
       console.log(`🎯 외곽선 위 점 ${boundaryCount}개 감지 - 바로 자동 완성!`);
       
       // 바로 완성
-      const area = calculatePolygonArea(newPoints);
+      const area = calculatePolygonArea(finalPoints);
       if (area > 0) {
-        onAreaComplete(newPoints);
+        onAreaComplete(finalPoints);
         setClickedPoints([]);
         setPointsOnBoundary([]);
         return;  // 여기서 종료
@@ -430,7 +476,7 @@ const AreaDrawing = forwardRef(({
     }
 
     // 일반 점 추가
-    setClickedPoints(newPoints);
+    setClickedPoints(finalPoints);
     setPointsOnBoundary(newBoundaryFlags);
   };
 
