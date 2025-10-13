@@ -213,15 +213,26 @@ const AreaManager = forwardRef(({
 
   // 렌더링 함수들
   const renderAreasOnly = () => {
+    console.log('🎨 renderAreasOnly 호출됨');
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.log('❌ canvas 없음');
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
     const activeAreas = savedAreas.filter(area => area.drawingStatus !== 'D');
+    console.log('📊 렌더링할 구역 수:', activeAreas.length);
+    console.log('구역 데이터:', activeAreas);
 
-    activeAreas.forEach((area) => {
-      if (!area.coordinates || area.coordinates.length < 3) return;
+    activeAreas.forEach((area, index) => {
+      if (!area.coordinates || area.coordinates.length < 3) {
+        console.log(`⚠️ 구역 ${index} 좌표 부족:`, area.coordinates?.length);
+        return;
+      }
 
+      console.log(`✏️ 구역 ${index} 그리기 시작:`, area.areaName, area.areaColor);
+      
       ctx.save();
       ctx.fillStyle = area.areaColor || '#CCCCCC';
       ctx.globalAlpha = 0.3;
@@ -229,6 +240,7 @@ const AreaManager = forwardRef(({
 
       area.coordinates.forEach((point, pointIndex) => {
         const canvasCoord = worldToCanvasCoord(point);
+        console.log(`  점 ${pointIndex}: world(${point.x}, ${point.y}) -> canvas(${canvasCoord.x}, ${canvasCoord.y})`);
         if (pointIndex === 0) ctx.moveTo(canvasCoord.x, canvasCoord.y);
         else ctx.lineTo(canvasCoord.x, canvasCoord.y);
       });
@@ -250,17 +262,22 @@ const AreaManager = forwardRef(({
       }
 
       ctx.restore();
+      console.log(`✅ 구역 ${index} 그리기 완료`);
     });
   };
 
   const renderSavedAreas = () => {
+    console.log('🔄 renderSavedAreas 호출됨');
     if (onRequestCADRedraw) {
+      console.log('📐 CAD 다시 그리기 요청');
       onRequestCADRedraw();
       // CAD 그리기 완료 후 구역 그리기 (setTimeout으로 순서 보장)
       setTimeout(() => {
+        console.log('⏰ setTimeout 후 renderAreasOnly 호출');
         renderAreasOnly();
       }, 0);
     } else {
+      console.log('📐 CAD 다시 그리기 없음 - 바로 구역 그리기');
       renderAreasOnly();
     }
   };
@@ -295,12 +312,16 @@ const AreaManager = forwardRef(({
         coordinates: coordinates,
         areaName: `구역_${tempAreaCount + 1}`,
         areaDesc: '',
-        areaColor: '#CCCCCC',
+        areaColor: '#FF0000', // 빨간색으로 바꿔서 확인
         drawingStatus: 'I'
       };
 
-      setSavedAreas(prev => [...prev, newArea]);
-      console.log('임시 구역 추가:', newArea.areaId);
+      setSavedAreas(prev => {
+        const updated = [...prev, newArea];
+        console.log('✅ 구역 추가됨:', newArea);
+        console.log('📊 전체 구역 수:', updated.length);
+        return updated;
+      });
     },
 
     deleteArea: (areaId) => {
@@ -400,8 +421,21 @@ const AreaManager = forwardRef(({
   }, [savedAreas, isDeleteMode, isPenMode, scale, offset]);
 
   useEffect(() => {
-    renderSavedAreas();
-  }, [savedAreas, openPopups, scale, offset]);
+    console.log('🔄 useEffect 트리거 - savedAreas 변경됨');
+    console.log('현재 savedAreas:', savedAreas);
+    console.log('현재 isPenMode:', isPenMode);
+    console.log('현재 openPopups:', openPopups);
+    console.log('현재 scale:', scale, 'offset:', offset);
+    
+    // 펜 모드일 때는 CAD 재그리기 생략 (AreaDrawing 점들 보호)
+    if (isPenMode) {
+      console.log('✅ 펜모드 - renderAreasOnly만 호출');
+      renderAreasOnly();
+    } else {
+      console.log('✅ 일반모드 - renderSavedAreas 호출');
+      renderSavedAreas();
+    }
+  }, [savedAreas, openPopups, scale, offset, isPenMode]);
 
   // 다중 PropertyForm 컴포넌트
   const PropertyForm = ({ areaId }) => {

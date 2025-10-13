@@ -432,10 +432,20 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     }
   };
 
-  const handleAreaComplete = (coordinates) => {
-    setCompletedAreas(prev => [...prev, coordinates]);
-    if (areaManagerRef.current) areaManagerRef.current.addArea(coordinates);
-  };
+const handleAreaComplete = (coordinates) => {
+  setCompletedAreas(prev => [...prev, coordinates]);
+  if (areaManagerRef.current) {
+    areaManagerRef.current.addArea(coordinates);
+    
+    // ✅ 구역 완성 후 CAD + 구역 다시 그리기
+    setTimeout(() => {
+      renderCADModelOnly();
+      setTimeout(() => {
+        areaManagerRef.current.redrawAreasOnly();
+      }, 10);
+    }, 50);
+  }
+};
 
   const handleAreasChange = (areas) => {
     console.log('구역 변경:', areas.length);

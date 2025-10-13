@@ -412,19 +412,26 @@ const AreaDrawing = forwardRef(({
     const isOnBoundary = isPointOnBoundary(worldCoord);
     const newBoundaryFlags = [...pointsOnBoundary, isOnBoundary];
     
-    setClickedPoints(newPoints);
-    setPointsOnBoundary(newBoundaryFlags);
-    
     console.log(`점 추가: (${worldCoord.x.toFixed(2)}, ${worldCoord.y.toFixed(2)}) - 총 ${newPoints.length}개, 외곽선 위: ${isOnBoundary}`);
     
     // 외곽선 위 점이 2개 이상이면 자동 완성
     const boundaryCount = newBoundaryFlags.filter(flag => flag).length;
     if (boundaryCount >= 2 && newPoints.length >= 3) {
-      console.log(`🎯 외곽선 위 점 ${boundaryCount}개 감지 + 총 ${newPoints.length}개 점 - 자동 완성!`);
-      setTimeout(() => {
-        completeArea();
-      }, 100);
+      console.log(`🎯 외곽선 위 점 ${boundaryCount}개 감지 - 바로 자동 완성!`);
+      
+      // 바로 완성
+      const area = calculatePolygonArea(newPoints);
+      if (area > 0) {
+        onAreaComplete(newPoints);
+        setClickedPoints([]);
+        setPointsOnBoundary([]);
+        return;  // 여기서 종료
+      }
     }
+
+    // 일반 점 추가
+    setClickedPoints(newPoints);
+    setPointsOnBoundary(newBoundaryFlags);
   };
 
   const completeArea = () => {
