@@ -27,23 +27,18 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
   const renderEntity = (ctx, entity) => {
     ctx.strokeStyle = "#333333";
-    const baseLineWidth = 1 / ctx.getTransform().a;  // ✅ 기본 선 굵기 계산
+    const baseLineWidth = 1 / ctx.getTransform().a;
 
     const type = entity.type;
 
-    // DWF Ellipse
     if ((type === "DwfWhipOutlineEllipse" || type === "DwfWhipFilledEllipse") && entity.centerX !== undefined) {
       ctx.save();
       ctx.translate(entity.centerX, -entity.centerY);
       ctx.rotate((entity.rotation || 0) * Math.PI / 180);
       ctx.scale(entity.majorRadius, entity.minorRadius);
-      
-      // ✅ scale 후에 lineWidth 재설정 (scale 보정)
       ctx.lineWidth = baseLineWidth / Math.min(entity.majorRadius, entity.minorRadius);
-      
       ctx.beginPath();
       ctx.arc(0, 0, 1, 0, 2 * Math.PI);
-      
       if (entity.filled) {
         ctx.fillStyle = "#333333";
         ctx.fill();
@@ -52,7 +47,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       }
       ctx.restore();
     }
-    // DWF Polyline
     else if (type === "DwfWhipPolyline" && entity.points?.length > 0) {
       ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
@@ -62,7 +56,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       }
       ctx.stroke();
     }
-    // DWF Polygon
     else if (type === "DwfWhipPolygon" && entity.points?.length > 0) {
       ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
@@ -73,7 +66,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       if (entity.closed) ctx.closePath();
       ctx.stroke();
     }
-    // DXF Line
     else if (type === "CadLine" && entity.startX !== undefined) {
       ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
@@ -81,14 +73,12 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       ctx.lineTo(entity.endX, -entity.endY);
       ctx.stroke();
     }
-    // DXF Circle
     else if (type === "CadCircle" && entity.centerX !== undefined) {
       ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
       ctx.arc(entity.centerX, -entity.centerY, entity.radius, 0, 2 * Math.PI);
       ctx.stroke();
     }
-    // DXF Arc
     else if (type === "CadArc" && entity.centerX !== undefined) {
       ctx.lineWidth = baseLineWidth;
       let startAngle = entity.startAngle || 0;
@@ -103,7 +93,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       ctx.arc(entity.centerX, -entity.centerY, entity.radius, startAngle, endAngle);
       ctx.stroke();
     }
-    // DXF LWPolyline
     else if (type === "CadLwPolyline" && entity.points?.length > 0) {
       ctx.lineWidth = baseLineWidth;
       ctx.beginPath();
@@ -114,7 +103,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       if (entity.closed) ctx.closePath();
       ctx.stroke();
     }
-    // DXF Text
     else if (type === "CadText" && entity.text) {
       ctx.save();
       ctx.fillStyle = "#333333";
@@ -122,7 +110,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       ctx.fillText(entity.text, entity.x, -entity.y);
       ctx.restore();
     }
-    // DXF MText
     else if (type === "CadMText" && entity.text) {
       ctx.save();
       ctx.fillStyle = "#333333";
@@ -133,12 +120,8 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
   };
 
   const renderCADModelOnly = (currentScale = scale, currentOffset = offset) => {
-    console.log('🖼️ renderCADModelOnly 시작');
     const canvas = canvasRef.current;
-    if (!canvas || !cadData || !cadData.entities) {
-      console.log('❌ 렌더링 중단 - 데이터 없음');
-      return;
-    }
+    if (!canvas || !cadData || !cadData.entities) return;
 
     const ctx = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
@@ -154,14 +137,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     ctx.scale(currentScale, currentScale);
     cadData.entities.forEach((entity) => renderEntity(ctx, entity));
     ctx.restore();
-    
-    console.log('✅ CAD 모델 렌더링 완료 - 엔티티 수:', cadData.entities.length);
   };
 
   const handleRedrawCanvas = () => {
-    console.log('🔄 Canvas 전체 재그리기');
     renderCADModelOnly();
-    
     if (areaManagerRef.current) {
       setTimeout(() => {
         areaManagerRef.current.redrawAreasOnly();
@@ -174,8 +153,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     setError(null);
 
     try {
-      console.log('📂 Aspose로 파일 로드 시작:', fileName);
-      
       const apiUrl = `http://localhost:8080/api/cad/parseWithAspose`;
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -190,8 +167,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
       }
 
       const data = await response.json();
-      console.log('✅ Aspose 파싱 완료:', data);
-
       setCadData(data);
 
       const bounds = calculateBounds(data.entities);
@@ -200,12 +175,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         const autoOffset = calculateOffset(bounds, 900, 400, autoScale);
         setScale(autoScale);
         setOffset(autoOffset);
-        
         setTimeout(() => renderCADModelOnly(autoScale, autoOffset), 0);
       } else {
         setTimeout(() => renderCADModelOnly(), 0);
       }
-
     } catch (err) {
       console.error('❌ 파일 로드 실패:', err);
       setError(err.message);
@@ -238,7 +211,6 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
     const coords = [];
     const type = entity.type;
 
-    // DWF Ellipse
     if ((type === "DwfWhipOutlineEllipse" || type === "DwfWhipFilledEllipse") && entity.centerX !== undefined) {
       const r = Math.max(entity.majorRadius, entity.minorRadius);
       coords.push(
@@ -246,16 +218,13 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         { x: entity.centerX + r, y: entity.centerY + r }
       );
     }
-    // DWF Polyline/Polygon
     else if ((type === "DwfWhipPolyline" || type === "DwfWhipPolygon") && entity.points) {
       coords.push(...entity.points);
     }
-    // DXF Line
     else if (type === "CadLine" && entity.startX !== undefined) {
       coords.push({ x: entity.startX, y: entity.startY });
       coords.push({ x: entity.endX, y: entity.endY });
     } 
-    // DXF Circle/Arc
     else if ((type === "CadCircle" || type === "CadArc") && entity.centerX !== undefined) {
       const r = entity.radius || 0;
       coords.push(
@@ -263,11 +232,9 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         { x: entity.centerX + r, y: entity.centerY + r }
       );
     } 
-    // DXF LWPolyline
     else if (type === "CadLwPolyline" && entity.points) {
       coords.push(...entity.points);
     } 
-    // DXF Text/MText
     else if ((type === "CadText" || type === "CadMText") && entity.x !== undefined) {
       coords.push({ x: entity.x, y: entity.y });
     }
@@ -302,14 +269,11 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
   const loadSavedAreas = async (modelId) => {
     try {
-      console.log('저장된 구역 데이터 로드:', modelId);
       const response = await fetch(`http://localhost:8080/api/cad/area/list/${modelId}`);
 
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.areas && result.areas.length > 0) {
-          console.log('로드된 구역 수:', result.areas.length);
-
           result.areas.forEach(areaData => {
             const coordinates = areaData.coordinates
               .sort((a, b) => a.pointOrder - b.pointOrder)
@@ -361,7 +325,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
       renderCADModelOnly(newScale, newOffset);
       if (areaManagerRef.current) {
-        requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
+        setTimeout(() => areaManagerRef.current.redrawAreasOnly(), 50);
       }
     };
 
@@ -383,7 +347,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
 
       renderCADModelOnly(scale, newOffset);
       if (areaManagerRef.current) {
-        requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
+        setTimeout(() => areaManagerRef.current.redrawAreasOnly(), 50);
       }
     };
 
@@ -426,29 +390,26 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
         setOffset(o);
         renderCADModelOnly(s, o);
         if (areaManagerRef.current) {
-          requestAnimationFrame(() => areaManagerRef.current.redrawAreasOnly());
+          setTimeout(() => areaManagerRef.current.redrawAreasOnly(), 50);
         }
       }
     }
   };
 
-const handleAreaComplete = (coordinates) => {
-  setCompletedAreas(prev => [...prev, coordinates]);
-  if (areaManagerRef.current) {
-    areaManagerRef.current.addArea(coordinates);
-    
-    // ✅ 구역 완성 후 CAD + 구역 다시 그리기
-    setTimeout(() => {
-      renderCADModelOnly();
+  const handleAreaComplete = (coordinates) => {
+    setCompletedAreas(prev => [...prev, coordinates]);
+    if (areaManagerRef.current) {
+      areaManagerRef.current.addArea(coordinates);
       setTimeout(() => {
-        areaManagerRef.current.redrawAreasOnly();
-      }, 10);
-    }, 50);
-  }
-};
+        renderCADModelOnly();
+        setTimeout(() => {
+          areaManagerRef.current.redrawAreasOnly();
+        }, 10);
+      }, 50);
+    }
+  };
 
   const handleAreasChange = (areas) => {
-    console.log('구역 변경:', areas.length);
     setCompletedAreas(areas.map(a => a.coordinates));
   };
 
@@ -572,12 +533,9 @@ const handleAreaComplete = (coordinates) => {
         onSave({
           savedCount,
           totalAreas: totalChanges,
-          message: totalChanges === 0
-            ? '저장할 변경사항이 없습니다.'
-            : '저장되었습니다.'
+          message: totalChanges === 0 ? '저장할 변경사항이 없습니다.' : '저장되었습니다.'
         });
       }
-
     } catch (error) {
       console.error('저장 오류:', error);
       if (onSave) {
