@@ -2,26 +2,50 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './DomainTemplete.css';
 import DomainList from './DomainList';
-import DomainForm from './DomainForm';
 
 const DomainManagement = ({ onDomainDoubleClick }) => {
   const [domains, setDomains] = useState([]);
   const [selectedDomain, setSelectedDomain] = useState(null);
-  const [formData, setFormData] = useState({ 
-    domainName: '', 
-    buildingName: '', 
-    area: '', 
-    version: '', 
-    description: '',
-    FILE_PATH: ''  // ⭐ 추가
-  });
-  const [pendingFiles, setPendingFiles] = useState({});
-  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [newDomainCounter, setNewDomainCounter] = useState(0);
   const API_BASE_URL = 'http://localhost:8080';
 
   useEffect(() => { 
-    fetchDomains(); 
+    fetchDomains();
+    
+    // 팝업 창에서 오는 메시지 처리
+    const handleMessage = (event) => {
+      if (event.data.type === 'DOMAIN_SAVED') {
+        fetchDomains(); // 저장 완료 → 목록 새로고침
+      } else if (event.data.type === 'DOMAIN_DELETED') {
+        fetchDomains(); // 삭제 완료 → 목록 새로고침
+      } else if (event.data.type === 'POPUP_CLOSED_WITHOUT_SAVE') {
+        // 저장 없이 팝업 닫힘 → 임시 항목 제거
+        setDomains(prev => prev.filter(d => d.RowStatus !== 'I'));
+      } else if (event.data.type === 'DOMAIN_DATA_CHANGED') {
+        // 실시간 데이터 변경
+        const { domainId, fieldName, fieldValue } = event.data;
+        
+        setDomains(prev => prev.map(d => {
+          if (d.MODEL_ID === domainId) {
+            if (fieldName === 'domainName') {
+              return { ...d, MODEL_NM: fieldValue };
+            } else if (fieldName === 'buildingName') {
+              return { ...d, BUILDING_NM: fieldValue };
+            } else if (fieldName === 'area') {
+              return { ...d, MODEL_SIZE: fieldValue !== '' ? Number(fieldValue) : 0 };
+            } else if (fieldName === 'version') {
+              return { ...d, VERSION_INFO: fieldValue };
+            } else if (fieldName === 'description') {
+              return { ...d, MODEL_DESC: fieldValue };
+            }
+          }
+          return d;
+        }));
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const fetchDomains = async () => {
@@ -39,62 +63,43 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
     }
   };
 
-  const selectDomain = (domain) => {
-    setSelectedDomain(domain);
-    setFormData({
-      domainName: domain.MODEL_NM || '',
-      buildingName: domain.BUILDING_NM || '',
-      area: domain.MODEL_SIZE != null ? String(domain.MODEL_SIZE) : '',
-      version: domain.VERSION_INFO || '',
-      description: domain.MODEL_DESC || '',
-      FILE_PATH: domain.FILE_PATH || ''  // ⭐ 추가
-    });
-    const files = domain.FILE_PATH ? [{ name: domain.FILE_PATH, isDB: true }] : [];
-    setUploadedFiles(files);
-    setPendingFiles({});
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (!selectedDomain) return;
+  // 새 창 열기 함수
+  const openPopupWindow = (mode, domainId = null) => {
+    const width = 900;
+    const height = 700;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
     
-    setDomains(prev => prev.map(d => 
-      d.MODEL_ID === selectedDomain.MODEL_ID ? {
-        ...d,
-        RowStatus: d.RowStatus === 'I' ? 'I' : 'U',
-        MODEL_NM: name === 'domainName' ? value : d.MODEL_NM,
-        BUILDING_NM: name === 'buildingName' ? value : d.BUILDING_NM,
-        MODEL_SIZE: name === 'area' ? (value !== '' ? Number(value) : 0) : d.MODEL_SIZE,
-        VERSION_INFO: name === 'version' ? value : d.VERSION_INFO,
-        MODEL_DESC: name === 'description' ? value : d.MODEL_DESC
-      } : d
-    ));
-  };
-
-  const handleFileChange = (e) => {
-    if (!selectedDomain) return;
-    const file = e.target.files[0];
-    if (!file) return;
+    let url = `/domain-form?mode=${mode}`;
+    if (domainId) {
+      url += `&domainId=${domainId}`;
+    }
     
-    setPendingFiles(prev => ({ ...prev, [selectedDomain.MODEL_ID]: file }));
-    setUploadedFiles(prev => [...prev.filter(f => f.isDB), { file, name: file.name, isDB: false }]);
-    setFormData(prev => ({ ...prev, FILE_PATH: file.name }));
-    setDomains(prev => prev.map(d => 
-      d.MODEL_ID === selectedDomain.MODEL_ID ? {
-        ...d, 
-        FILE_PATH: file.name, 
-        RowStatus: d.RowStatus === 'I' ? 'I' : 'U'
-      } : d
-    ));
+    const popup = window.open(
+      url,
+      'DomainFormWindow',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+
+    // 팝업이 닫혔는지 체크
+    const checkPopupClosed = setInterval(() => {
+      if (popup && popup.closed) {
+        clearInterval(checkPopupClosed);
+        // 팝업 닫힘 - 저장 없이 닫힌 경우 임시 항목 제거
+        setDomains(prev => prev.filter(d => d.RowStatus !== 'I'));
+      }
+    }, 500);
   };
 
-  const addDomainVirtual = () => {
+  // 신규 버튼 클릭
+  const handleNewClick = () => {
     const tempId = `NEW_${newDomainCounter}`;
     setNewDomainCounter(prev => prev + 1);
+    
+    // 리스트에 임시 항목 추가 (빈 이름으로 시작)
     const newDomain = { 
       MODEL_ID: tempId, 
-      MODEL_NM: '', 
+      MODEL_NM: '', // 빈 문자열로 시작
       BUILDING_NM: '', 
       MODEL_SIZE: 0, 
       VERSION_INFO: '', 
@@ -102,187 +107,39 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
       RowStatus: 'I', 
       FILE_PATH: '' 
     };
-    setDomains(prev => [...prev, newDomain]);
+    
+    setDomains(prev => [newDomain, ...prev]); // 맨 위에 추가
     setSelectedDomain(newDomain);
-    setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '', FILE_PATH: '' });  // ⭐ FILE_PATH 추가
-    setUploadedFiles([]);
-    setPendingFiles({});
+    
+    // 팝업 열기
+    openPopupWindow('new', tempId);
   };
 
-  const removeDomainVirtual = () => {
-    if (!selectedDomain) return;
-    setDomains(prev => prev.map(d => 
-      d.MODEL_ID === selectedDomain.MODEL_ID ? { ...d, RowStatus: 'D' } : d
-    ));
-    setSelectedDomain(null);
-    setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '', FILE_PATH: '' });  // ⭐ FILE_PATH 추가
-    setUploadedFiles([]);
-    setPendingFiles({});
-  };
-
-  const deleteFileFromServer = async (fileName) => {
-    try {
-      console.log('서버에서 파일 삭제:', fileName);
-      const response = await axios.delete(`${API_BASE_URL}/api/cad/deleteFile`, {
-        params: { fileName: fileName }
-      });
-      
-      if (response.data.success) {
-        console.log('파일 삭제 성공');
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('파일 삭제 오류:', error);
-      return false;
+  // 단일 클릭 - 새 창으로 수정
+  const selectDomain = (domain) => {
+    // 임시 항목(신규) 클릭 시 팝업 열지 않음
+    if (domain.RowStatus === 'I') {
+      return;
     }
+    
+    setSelectedDomain(domain);
+    openPopupWindow('edit', domain.MODEL_ID);
   };
 
-  const clearAllAreasFromDB = async (modelId) => {
-    try {
-      console.log('전체 구역 삭제:', modelId);
-      
-      const deleteAllData = {
-        drawingStatus: 'D',
-        areaId: 'ALL',
-        modelId: modelId
-      };
-
-      const response = await axios.post(`${API_BASE_URL}/api/cad/area/save`, deleteAllData);
-      
-      if (response.data.success) {
-        console.log('전체 구역 삭제 성공');
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('전체 삭제 오류:', error);
-      return false;
-    }
-  };
-
-  const saveDomain = async () => {
-    try {
-      const changedRows = domains.filter(d => ['I', 'U', 'D'].includes(d.RowStatus));
-      if (!changedRows.length) { 
-        alert('저장할 변경사항이 없습니다.'); 
-        return; 
-      }
-
-      for (const d of changedRows) {
-        const file = pendingFiles[d.MODEL_ID];
-
-        if (d.RowStatus === 'D') {
-          console.log('도메인 삭제:', d.MODEL_ID);
-          
-          if (d.FILE_PATH) {
-            await deleteFileFromServer(d.FILE_PATH);
-          }
-          
-          await clearAllAreasFromDB(d.MODEL_ID);
-        }
-        
-        else if (d.RowStatus === 'U' && file) {
-          console.log('파일 교체:', d.MODEL_ID);
-          
-          const originalDomains = await axios.post(`${API_BASE_URL}/api/cad/models/getCadModelList`, {});
-          const originalDomain = originalDomains.data.find(orig => orig.MODEL_ID === d.MODEL_ID);
-          
-          if (originalDomain && originalDomain.FILE_PATH && originalDomain.FILE_PATH !== file.name) {
-            const confirmed = window.confirm(
-              `CAD 파일이 변경되었습니다.\n` +
-              `기존 파일: ${originalDomain.FILE_PATH}\n` +
-              `새 파일: ${file.name}\n\n` +
-              `모든 구역 데이터를 삭제하고 저장하시겠습니까?`
-            );
-            
-            if (confirmed) {
-              const fileDeleted = await deleteFileFromServer(originalDomain.FILE_PATH);
-              if (!fileDeleted) {
-                alert('기존 파일 삭제 실패');
-                return;
-              }
-              
-              const areasDeleted = await clearAllAreasFromDB(d.MODEL_ID);
-              if (!areasDeleted) {
-                alert('구역 삭제 실패');
-                return;
-              }
-            } else {
-              alert('저장 취소');
-              return;
-            }
-          }
-        }
-      }
-
-      for (const d of changedRows) {
-        const file = pendingFiles[d.MODEL_ID];
-        if (file && d.RowStatus !== 'D') {
-          console.log('파일 업로드:', file.name);
-          
-          const fileExt = file.name.split('.').pop().toLowerCase();
-          const formDataObj = new FormData();
-          formDataObj.append('file', file);
-          formDataObj.append('modelId', d.MODEL_ID);
-          
-          try {
-            if (fileExt === 'dxf') {
-              await axios.post(`${API_BASE_URL}/api/cad/uploadDXF`, formDataObj, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              });
-            } else if (fileExt === 'dwf') {
-              await axios.post(`${API_BASE_URL}/api/cad/uploadDWF`, formDataObj, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              });
-            } else {
-              alert(`지원하지 않는 파일 형식: ${fileExt}`);
-              return;
-            }
-            
-            d.FILE_PATH = file.name;
-          } catch (uploadError) {
-            console.error('파일 업로드 실패:', uploadError);
-            alert('파일 업로드 실패');
-            return;
-          }
-        }
-      }
-
-      const payload = changedRows.map(d => ({
-        MODEL_ID: d.MODEL_ID,
-        MODEL_NM: d.MODEL_NM || '',
-        BUILDING_NM: d.BUILDING_NM || '',
-        MODEL_DESC: d.MODEL_DESC || '',
-        VERSION_INFO: d.VERSION_INFO || '',
-        MODEL_SIZE: d.MODEL_SIZE || 0,
-        FILE_PATH: d.FILE_PATH || '',
-        RowStatus: d.RowStatus
-      }));
-
-      await axios.post(`${API_BASE_URL}/api/cad/models/saveCadModelList`, payload);
-      
-      alert('저장 완료');
-      
-      setFormData({ domainName: '', buildingName: '', area: '', version: '', description: '', FILE_PATH: '' });  // ⭐ FILE_PATH 추가
-      setSelectedDomain(null);
-      setPendingFiles({});
-      setUploadedFiles([]);
-      
-      await fetchDomains();
-      
-    } catch (e) { 
-      console.error('저장 오류', e); 
-      alert('저장 중 오류'); 
-    }
-  };
-
+  // 조회
   const handleSearch = async () => { 
     await fetchDomains(); 
     alert('조회 완료'); 
   };
 
+  // 더블 클릭 - CAD 화면으로 이동
   const handleDomainDoubleClick = (domain) => {
+    // 임시 항목(신규)은 더블클릭 불가
+    if (domain.RowStatus === 'I') {
+      alert('저장 후 사용할 수 있습니다.');
+      return;
+    }
+    
     console.log('도메인 더블클릭:', domain.FILE_PATH);
     
     if (!domain.FILE_PATH) {
@@ -309,16 +166,7 @@ const DomainManagement = ({ onDomainDoubleClick }) => {
         onDomainSelect={selectDomain}
         onSearch={handleSearch}
         onRowDoubleClick={handleDomainDoubleClick}
-      />
-      <DomainForm
-        formData={formData}
-        onInputChange={handleInputChange}
-        onSave={saveDomain}
-        onAdd={addDomainVirtual}
-        onRemove={removeDomainVirtual}
-        selectedDomain={selectedDomain}
-        onFileChange={handleFileChange}
-        uploadedFiles={uploadedFiles}
+        onNewClick={handleNewClick}
       />
     </div>
   );

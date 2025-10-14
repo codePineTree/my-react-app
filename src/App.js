@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import './components/AreaTemplete.css';
 import Navigation from './components/Navigation';
 import Sidebar from './components/Sidebar';
 import CADDisplay from './components/CADDisplay';
 import DomainManagement from './components/DomainManagement';
+import DomainFormPopup from './components/DomainFormPopup';
 
-const App = () => {
+// 메인 앱 컴포넌트 (기존 기능 그대로)
+const MainApp = () => {
   const [activeTab, setActiveTab] = useState('도면관리');
   const [selectedArea, setSelectedArea] = useState(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
@@ -15,7 +18,7 @@ const App = () => {
   const [cadFileType, setCadFileType] = useState(''); // dxf / dwf
   const [modelId, setModelId] = useState(null);
 
-  // 도메인 더블클릭 - Aspose로 직접 파싱
+  // 도메인 더블클릭 - Aspose로 직접 파싱 (기존 기능 그대로!)
   const handleDomainDoubleClick = (domainData) => {
     console.log('도메인 더블클릭:', domainData);
 
@@ -85,6 +88,21 @@ const App = () => {
       <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="main-content">{renderContent()}</div>
     </div>
+  );
+};
+
+// 라우터 설정
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        {/* 메인 화면 (기존 기능 전부 그대로!) */}
+        <Route path="/" element={<MainApp />} />
+        
+        {/* 팝업 전용 경로 (새 창에서만 열림) */}
+        <Route path="/domain-form" element={<DomainFormPopup />} />
+      </Routes>
+    </Router>
   );
 };
 

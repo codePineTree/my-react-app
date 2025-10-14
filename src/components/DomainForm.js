@@ -1,7 +1,7 @@
 import React from 'react';
 import './DomainTemplete.css';
 
-const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selectedDomain, onFileChange, uploadedFiles }) => {
+const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selectedDomain, onFileChange, uploadedFiles, showDeleteButton, formTitle }) => {
   const handleButtonClick = () => {
     document.getElementById('file-input').click();
   };
@@ -9,7 +9,7 @@ const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selected
   return (
     <div className="domain-form-section">
       <div className="domain-form-header">
-        <h2 className="domain-form-title">도면 정보</h2>
+        <h2 className="domain-form-title">{formTitle || '도면 정보'}</h2>
       </div>
 
       <div className="domain-form-content">
@@ -114,8 +114,22 @@ const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selected
 
             {/* 버튼 그룹 */}
             <div className="domain-form-buttons-inline">
-              <button className="domain-action-btn" onClick={onAdd}>+</button>
-              <button className="domain-action-btn" onClick={onRemove} disabled={!selectedDomain}>-</button>
+              {/* + 버튼은 onAdd가 있을 때만 표시 */}
+              {onAdd && (
+                <button className="domain-action-btn" onClick={onAdd}>+</button>
+              )}
+              
+              {/* 삭제 버튼은 수정 모드일 때만 표시 */}
+              {showDeleteButton && onRemove && (
+                <button 
+                  className="domain-action-btn" 
+                  onClick={onRemove}
+                  style={{ width: 'auto', padding: '12px 20px' }}
+                >
+                  삭제
+                </button>
+              )}
+              
               <button className="domain-save-btn" onClick={onSave}>저장</button>
             </div>
           </div>

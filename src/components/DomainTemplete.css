@@ -35,6 +35,21 @@
   margin: 0;
 }
 
+/* ⭐ 검색창 스타일 */
+.domain-search-input {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 500px;
+  font-size: 14px;
+}
+
+.domain-search-input:focus {
+  outline: none;
+  border-color: #1976D2;
+}
+
+/* 조회/신규 버튼 */
 .domain-search-btn {
   background: white;
   color: #1976D2;
@@ -179,14 +194,14 @@
 /* textarea (다른 입력칸과 동일한 한 줄 높이) */
 .domain-form-textarea {
   flex: 1;
-  height: 48px;         /* 다른 입력폼과 동일 높이 */
+  height: 48px;
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
   transition: border-color 0.2s;
-  resize: none;         /* 높이 고정 */
+  resize: none;
   box-sizing: border-box;
 }
 
@@ -265,7 +280,7 @@
 
 /* ===== 새로 추가: 도면 파일 업로드 행 + 버튼 우측 정렬 ===== */
 .domain-form-file-row {
-  grid-column: span 2;         /* 두 컬럼 전체 차지 */
+  grid-column: span 2;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -295,10 +310,29 @@
   flex-shrink: 0;
 }
 
+.file-select-button {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 10px;
+}
+
+.file-select-button:hover {
+  background: #e0e0e0;
+}
+
 /* 반응형 디자인 */
 @media (max-width: 768px) {
   .domain-container {
     padding: 12px;
+  }
+
+  .domain-search-input {
+    width: 100%;
   }
 
   .domain-form-grid-2col {
@@ -324,7 +358,6 @@
     padding: 16px;
   }
 
-  /* 모바일: 설명/파일 행 세로 배치 */
   .domain-form-description-row {
     flex-direction: column;
     align-items: stretch;
@@ -338,35 +371,20 @@
   .domain-form-buttons-inline {
     justify-content: flex-start;
   }
-  .file-select-button {
-  display: inline-block;
-  padding: 6px 12px;
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-right: 10px;
-}
 
-.file-select-button:hover {
-  background: #e0e0e0;
-}
+  /* 파일 input의 "선택된 파일 없음" 텍스트 숨김 */
+  .file-upload-section input[type="file"] {
+    width: 100px;
+    color: transparent;
+  }
 
-/* 파일 input의 "선택된 파일 없음" 텍스트 숨김 */
-.file-upload-section input[type="file"] {
-  width: 100px; /* 버튼 크기만큼만 */
-  color: transparent;
-}
+  .file-upload-section input[type="file"]::-webkit-file-upload-button {
+    visibility: visible;
+    color: black;
+  }
 
-.file-upload-section input[type="file"]::-webkit-file-upload-button {
-  visibility: visible;
-  color: black;
-}
-
-/* Firefox */
-.file-upload-section input[type="file"]::file-selector-button {
-  visibility: visible;
-}
-
+  /* Firefox */
+  .file-upload-section input[type="file"]::file-selector-button {
+    visibility: visible;
+  }
 }
