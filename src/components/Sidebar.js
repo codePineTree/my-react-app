@@ -109,11 +109,11 @@ const Sidebar = ({
     return pages;
   };
 
-  // 구역 클릭 처리
-  const handleAreaClick = (area) => {
-    handleAreaSelect(area.areaNm);
-  };
-
+// 구역 클릭 처리
+const handleAreaClick = (area) => {
+  console.log('🖱️ Sidebar - 구역 클릭 (ID):', area.areaId);
+  handleAreaSelect(area.areaId);  // ✅ 수정: area.areaId 전달
+};
   return (
     <aside className="sidebar">
       {/* 구역 리스트 패널 */}

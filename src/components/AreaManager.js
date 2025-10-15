@@ -12,14 +12,14 @@ const AreaManager = forwardRef(({
   onAreasChange,
   isDeleteMode,
   isPenMode,
-  onRequestCADRedraw
+  onRequestCADRedraw,
+  selectedAreaId
 }, ref) => {
 
   const [savedAreas, setSavedAreas] = useState([]);
-  
-  // 다중 팝업을 위한 상태 변경
-  const [openPopups, setOpenPopups] = useState([]); // 열린 팝업들의 areaId 배열
-  const [editingAreas, setEditingAreas] = useState({}); // 편집 중인 구역 데이터들
+  const [openPopups, setOpenPopups] = useState([]);
+  const [editingAreas, setEditingAreas] = useState({});
+  const [frontPopup, setFrontPopup] = useState(null);
 
   const worldToCanvasCoord = (worldCoord) => ({
     x: worldCoord.x * scale + offset.x,
@@ -48,21 +48,14 @@ const AreaManager = forwardRef(({
     return null;
   };
 
-  // 선택된 팝업을 위로 올리기 위한 상태
-  const [frontPopup, setFrontPopup] = useState(null);
-  
-  // 팝업 열기/닫기 함수들
   const openPopup = (areaId) => {
     const area = savedAreas.find(a => a.areaId === areaId);
     if (!area) return;
 
-    // 이미 열린 팝업이면 무시
     if (openPopups.includes(areaId)) return;
 
-    // 팝업 목록에 추가
     setOpenPopups(prev => [...prev, areaId]);
     
-    // 편집 데이터 초기화
     setEditingAreas(prev => ({
       ...prev,
       [areaId]: {
@@ -80,13 +73,11 @@ const AreaManager = forwardRef(({
       delete newState[areaId];
       return newState;
     });
-    // 닫은 팝업이 앞에 있었다면 frontPopup 초기화
     if (frontPopup === areaId) {
       setFrontPopup(null);
     }
   };
 
-  // 팝업을 앞으로 가져오기
   const bringToFront = (areaId) => {
     setFrontPopup(areaId);
   };
@@ -107,33 +98,6 @@ const AreaManager = forwardRef(({
     }));
   };
 
-  // 개별 저장
-  const saveArea = (areaId) => {
-    const editData = editingAreas[areaId];
-    if (!editData) return;
-
-    setSavedAreas(prev => 
-      prev.map(area => 
-        area.areaId === areaId 
-          ? { ...area, ...editData }
-          : area
-      )
-    );
-    closePopup(areaId);
-  };
-
-  // 일괄 저장
-  const saveAllAreas = () => {
-    setSavedAreas(prev => 
-      prev.map(area => {
-        const editData = editingAreas[area.areaId];
-        return editData ? { ...area, ...editData } : area;
-      })
-    );
-    closeAllPopups();
-  };
-
-  // 로컬 삭제 함수 - DB 호출 없이 로컬에서만 삭제 표시
   const deleteAreaLocally = (areaId) => {
     const areaToDelete = savedAreas.find(area => area.areaId === areaId);
     if (!areaToDelete) {
@@ -144,7 +108,6 @@ const AreaManager = forwardRef(({
     console.log(`구역 로컬 삭제 표시: ${areaId}`, areaToDelete);
 
     if (areaToDelete.areaId && areaToDelete.areaId.startsWith('temp_')) {
-      // 임시 구역은 바로 제거
       console.log(`임시 구역 즉시 삭제: ${areaId}`);
       setSavedAreas(prev => {
         const newAreas = prev.filter(area => area.areaId !== areaId);
@@ -153,7 +116,6 @@ const AreaManager = forwardRef(({
         return newAreas;
       });
     } else {
-      // 기존 DB 구역은 삭제 표시만
       console.log(`기존 구역 삭제 표시: ${areaId}`);
       setSavedAreas(prev => {
         const newAreas = prev.map(area => 
@@ -167,12 +129,10 @@ const AreaManager = forwardRef(({
       });
     }
 
-    // 삭제된 구역의 팝업도 닫기
     closePopup(areaId);
     return true;
   };
 
-  // 클릭 이벤트 수정 - 지우개 모드에서는 로컬 삭제만
   const handleCanvasClick = async (event) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -190,20 +150,17 @@ const AreaManager = forwardRef(({
 
     if (clickedArea) {
       if (isDeleteMode) {
-        // 지우개 모드일 때 로컬 삭제만 수행
         console.log(`구역 로컬 삭제 요청: ${clickedArea.areaId}`);
         const confirmed = window.confirm(`"${clickedArea.areaName}"을(를) 삭제하시겠습니까?`);
         if (confirmed) {
           deleteAreaLocally(clickedArea.areaId);
         }
       } else {
-        // 펜모드, 일반모드에서 팝업 열기 (지우개 모드 제외)
         openPopup(clickedArea.areaId);
       }
     }
   };
 
-  // 지우개 모드 활성화 시 모든 팝업 닫기
   useEffect(() => {
     if (isDeleteMode) {
       closeAllPopups();
@@ -211,7 +168,6 @@ const AreaManager = forwardRef(({
     }
   }, [isDeleteMode]);
 
-  // 렌더링 함수들
   const renderAreasOnly = () => {
     console.log('🎨 renderAreasOnly 호출됨');
     const canvas = canvasRef.current;
@@ -223,7 +179,7 @@ const AreaManager = forwardRef(({
     const ctx = canvas.getContext('2d');
     const activeAreas = savedAreas.filter(area => area.drawingStatus !== 'D');
     console.log('📊 렌더링할 구역 수:', activeAreas.length);
-    console.log('구역 데이터:', activeAreas);
+    console.log('선택된 구역 ID:', selectedAreaId);
 
     activeAreas.forEach((area, index) => {
       if (!area.coordinates || area.coordinates.length < 3) {
@@ -234,13 +190,25 @@ const AreaManager = forwardRef(({
       console.log(`✏️ 구역 ${index} 그리기 시작:`, area.areaName, area.areaColor);
       
       ctx.save();
-      ctx.fillStyle = area.areaColor || '#CCCCCC';
+
+      const isSelected = selectedAreaId && area.areaId === selectedAreaId;
+      
+      if (isSelected) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 5;
+        console.log('🔴 선택된 구역 (ID):', area.areaId, area.areaName);
+      } else {
+        ctx.fillStyle = area.areaColor || '#CCCCCC';
+        ctx.strokeStyle = area.areaColor || '#999999';
+        ctx.lineWidth = 2;
+      }
+
       ctx.globalAlpha = 0.3;
       ctx.beginPath();
 
       area.coordinates.forEach((point, pointIndex) => {
         const canvasCoord = worldToCanvasCoord(point);
-        console.log(`  점 ${pointIndex}: world(${point.x}, ${point.y}) -> canvas(${canvasCoord.x}, ${canvasCoord.y})`);
         if (pointIndex === 0) ctx.moveTo(canvasCoord.x, canvasCoord.y);
         else ctx.lineTo(canvasCoord.x, canvasCoord.y);
       });
@@ -248,30 +216,30 @@ const AreaManager = forwardRef(({
       ctx.closePath();
       ctx.fill();
       ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = area.areaColor || '#999999';
-      ctx.lineWidth = 2;
       ctx.stroke();
-
-      // 팝업이 열린 구역 강조 표시
-      if (openPopups.includes(area.areaId)) {
-        ctx.strokeStyle = '#FF0000';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
 
       ctx.restore();
       console.log(`✅ 구역 ${index} 그리기 완료`);
     });
   };
 
+  useEffect(() => {
+    console.log('🔄 선택된 구역 변경 (ID):', selectedAreaId);
+    if (onRequestCADRedraw) {
+      onRequestCADRedraw();
+      setTimeout(() => {
+        renderAreasOnly();
+      }, 10);
+    } else {
+      renderAreasOnly();
+    }
+  }, [selectedAreaId]);
+
   const renderSavedAreas = () => {
     console.log('🔄 renderSavedAreas 호출됨');
     if (onRequestCADRedraw) {
       console.log('📐 CAD 다시 그리기 요청');
       onRequestCADRedraw();
-      // CAD 그리기 완료 후 구역 그리기 (setTimeout으로 순서 보장)
       setTimeout(() => {
         console.log('⏰ setTimeout 후 renderAreasOnly 호출');
         renderAreasOnly();
@@ -302,9 +270,8 @@ const AreaManager = forwardRef(({
         return;
       }
 
-      // 현재 전체 구역 수 기준으로 번호 부여
       const tempAreaCount = savedAreas.filter(area => 
-        area.drawingStatus !== 'D' // 삭제되지 않은 구역만 카운트
+        area.drawingStatus !== 'D'
       ).length;
 
       const newArea = {
@@ -312,7 +279,7 @@ const AreaManager = forwardRef(({
         coordinates: coordinates,
         areaName: `구역_${tempAreaCount + 1}`,
         areaDesc: '',
-        areaColor: '#CCCCCC', // 회색으로 변경
+        areaColor: '#CCCCCC',
         drawingStatus: 'I'
       };
 
@@ -325,7 +292,7 @@ const AreaManager = forwardRef(({
     },
 
     deleteArea: (areaId) => {
-      return deleteAreaLocally(areaId); // 로컬 삭제로 변경
+      return deleteAreaLocally(areaId);
     },
 
     refreshAreas: () => {
@@ -341,28 +308,16 @@ const AreaManager = forwardRef(({
       );
     },
 
-    // 삭제된 구역들을 저장용으로 반환 (새로 추가)
     getDeletedAreasForSave: () => {
       return savedAreas.filter(area => 
         area.drawingStatus === 'D' && 
-        !area.areaId.startsWith('temp_') // 기존 DB 구역만
+        !area.areaId.startsWith('temp_')
       );
     },
 
-    saveAllAreasToDb: () => {
-      const areasToSave = savedAreas.filter(area => 
-        area.drawingStatus === 'I' && 
-        area.areaId.startsWith('temp_')
-      );
-      console.log(`${areasToSave.length}개 구역 저장 예정 (API 호출)`);
-      return areasToSave;
-    },
-
-    // 현재 편집 중인 팝업 데이터만 저장용으로 반환
     getEditingAreasForSave: () => {
       const editingData = [];
       
-      // 현재 열린 팝업들 중 편집된 데이터가 있는 것만 처리
       openPopups.forEach(areaId => {
         const area = savedAreas.find(a => a.areaId === areaId);
         const editData = editingAreas[areaId];
@@ -370,7 +325,7 @@ const AreaManager = forwardRef(({
         if (area && editData) {
           editingData.push({
             ...area,
-            ...editData // 편집된 데이터로 덮어쓰기
+            ...editData
           });
         }
       });
@@ -378,7 +333,6 @@ const AreaManager = forwardRef(({
       return editingData;
     },
 
-    // 편집된 데이터를 실제 savedAreas에 적용
     applyEditingChanges: () => {
       setSavedAreas(prev => 
         prev.map(area => {
@@ -392,12 +346,10 @@ const AreaManager = forwardRef(({
       setSavedAreas(prev => prev.filter(area => !area.areaId.startsWith('temp_')));
     },
 
-    // 삭제된 구역들을 실제로 제거 (저장 완료 후)
     clearDeletedAreas: () => {
       setSavedAreas(prev => prev.filter(area => area.drawingStatus !== 'D'));
     },
 
-    // 저장 완료 후 모든 팝업 닫기
     closeAllPopupsAfterSave: () => {
       console.log('저장 완료 후 모든 팝업 닫기');
       closeAllPopups();
@@ -422,12 +374,7 @@ const AreaManager = forwardRef(({
 
   useEffect(() => {
     console.log('🔄 useEffect 트리거 - savedAreas 변경됨');
-    console.log('현재 savedAreas:', savedAreas);
-    console.log('현재 isPenMode:', isPenMode);
-    console.log('현재 openPopups:', openPopups);
-    console.log('현재 scale:', scale, 'offset:', offset);
     
-    // 펜 모드일 때는 CAD 재그리기 생략 (AreaDrawing 점들 보호)
     if (isPenMode) {
       console.log('✅ 펜모드 - renderAreasOnly만 호출');
       renderAreasOnly();
@@ -437,19 +384,44 @@ const AreaManager = forwardRef(({
     }
   }, [savedAreas, openPopups, scale, offset, isPenMode]);
 
-  // 다중 PropertyForm 컴포넌트
   const PropertyForm = ({ areaId }) => {
     const area = savedAreas.find(a => a.areaId === areaId);
     const editData = editingAreas[areaId] || {};
     
-    // 드래그 상태 관리
     const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const [position, setPosition] = useState({
       x: 20 + ((openPopups.indexOf(areaId) % 2) * 350),
       y: 350 + (Math.floor(openPopups.indexOf(areaId) / 2) * 200)
     });
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+    // ✅ useEffect를 최상단에 배치 (조건문 위에)
+    useEffect(() => {
+      if (!isDragging) return;
+
+      const handleMouseMove = (e) => {
+        e.preventDefault();
+        setPosition({
+          x: e.clientX - dragStart.x,
+          y: e.clientY - dragStart.y
+        });
+      };
+
+      const handleMouseUp = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }, [isDragging, dragStart.x, dragStart.y]);
+
+    // ✅ 조건문은 useEffect 아래에
     if (!area) return null;
 
     const handleMouseDown = (e) => {
@@ -458,31 +430,11 @@ const AreaManager = forwardRef(({
         e.stopPropagation();
         
         setIsDragging(true);
-        setDragOffset({
+        setDragStart({
           x: e.clientX - position.x,
           y: e.clientY - position.y
         });
         bringToFront(areaId);
-        
-        const handleMouseMove = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setPosition({
-            x: e.clientX - dragOffset.x,
-            y: e.clientY - dragOffset.y
-          });
-        };
-
-        const handleMouseUp = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsDragging(false);
-          document.removeEventListener('mousemove', handleMouseMove);
-          document.removeEventListener('mouseup', handleMouseUp);
-        };
-
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
       }
     };
 
@@ -492,25 +444,20 @@ const AreaManager = forwardRef(({
           e.stopPropagation();
           bringToFront(areaId);
         }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          handleMouseDown(e);
-        }}
-        onMouseMove={(e) => e.stopPropagation()}
-        onMouseUp={(e) => e.stopPropagation()}
+        onMouseDown={handleMouseDown}
         style={{
-        position: 'fixed',
-        top: `${position.y}px`,
-        left: `${position.x}px`,
-        background: 'white',
-        padding: '20px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        zIndex: frontPopup === areaId ? 2000 : (1000 + openPopups.indexOf(areaId)),
-        minWidth: '300px',
-        border: '2px solid #1976D2',
-        cursor: isDragging ? 'grabbing' : 'default'
-      }}>
+          position: 'fixed',
+          top: `${position.y}px`,
+          left: `${position.x}px`,
+          background: 'white',
+          padding: '20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          zIndex: frontPopup === areaId ? 2000 : (1000 + openPopups.indexOf(areaId)),
+          minWidth: '300px',
+          border: '2px solid #1976D2',
+          cursor: isDragging ? 'grabbing' : 'default'
+        }}>
         <div 
           className="drag-handle"
           style={{ 
@@ -573,12 +520,8 @@ const AreaManager = forwardRef(({
     );
   };
 
-  const activeAreaCount = savedAreas.filter(area => area.drawingStatus !== 'D').length;
-  const deletedAreaCount = savedAreas.filter(area => area.drawingStatus === 'D' && !area.areaId.startsWith('temp_')).length;
-
   return (
     <>
-      {/* 다중 팝업 렌더링 */}
       {openPopups.map(areaId => (
         <PropertyForm key={areaId} areaId={areaId} />
       ))}

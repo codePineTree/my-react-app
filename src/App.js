@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './components/AreaTemplete.css';
 import Navigation from './components/Navigation';
 import Sidebar from './components/Sidebar';
@@ -7,18 +7,18 @@ import CADDisplay from './components/CADDisplay';
 import DomainManagement from './components/DomainManagement';
 import DomainFormPopup from './components/DomainFormPopup';
 
-// 메인 앱 컴포넌트 (기존 기능 그대로)
+// 메인 앱 컴포넌트
 const MainApp = () => {
   const [activeTab, setActiveTab] = useState('도면관리');
-  const [selectedArea, setSelectedArea] = useState(null);
+  const [selectedAreaId, setSelectedAreaId] = useState(null);  // ✅ 변경: selectedArea → selectedAreaId
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
-  const [cadFileType, setCadFileType] = useState(''); // dxf / dwf
+  const [cadFileType, setCadFileType] = useState('');
   const [modelId, setModelId] = useState(null);
 
-  // 도메인 더블클릭 - Aspose로 직접 파싱 (기존 기능 그대로!)
+  // 도메인 더블클릭
   const handleDomainDoubleClick = (domainData) => {
     console.log('도메인 더블클릭:', domainData);
 
@@ -27,15 +27,16 @@ const MainApp = () => {
       return;
     }
 
-    // DXF든 DWF든 Aspose가 직접 처리
     setCadFileType(domainData.cadFilePath.toLowerCase().endsWith('.dwf') ? 'dwf' : 'dxf');
     setCadFilePath(domainData.cadFilePath);
     setModelId(domainData.MODEL_ID);
+    setSelectedAreaId(null);  // ✅ 수정: 새 도면 로드 시 선택 영역 초기화
     setActiveTab('구역관리');
   };
 
-  const handleAreaSelect = (area) => {
-    setSelectedArea(area);
+  const handleAreaSelect = (areaId) => {  // ✅ 수정: areaId 받기
+    console.log('🎯 App.js - 구역 선택됨 (ID):', areaId);
+    setSelectedAreaId(areaId);
   };
 
   const triggerSidebarRefresh = () => {
@@ -61,7 +62,7 @@ const MainApp = () => {
         return (
           <>
             <Sidebar
-              selectedArea={selectedArea}
+              selectedArea={selectedAreaId}  // ✅ 변경: selectedAreaId 전달
               handleAreaSelect={handleAreaSelect}
               modelId={modelId}
               refreshTrigger={sidebarRefreshTrigger}
@@ -72,6 +73,7 @@ const MainApp = () => {
                 cadFileType={cadFileType}
                 modelId={modelId}
                 onSave={handleSaveComplete}
+                selectedAreaId={selectedAreaId}  // ✅ 변경: selectedAreaId 전달
               />
               <div style={{ height: '100px' }}></div>
             </main>
@@ -96,10 +98,7 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        {/* 메인 화면 (기존 기능 전부 그대로!) */}
         <Route path="/" element={<MainApp />} />
-        
-        {/* 팝업 전용 경로 (새 창에서만 열림) */}
         <Route path="/domain-form" element={<DomainFormPopup />} />
       </Routes>
     </Router>

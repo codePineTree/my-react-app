@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import AreaDrawing from "./AreaDrawing";
 import AreaManager from "./AreaManager";
 
-const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
+const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId }) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null);
   const areaDrawingRef = useRef(null);
@@ -651,6 +651,7 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType }) => {
             isDeleteMode={isDeleteMode}
             isPenMode={isPenMode}
             onRequestCADRedraw={renderCADModelOnly}
+            selectedAreaId={selectedAreaId}
           />
         </div>
       </div>
