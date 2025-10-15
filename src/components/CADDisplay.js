@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import AreaDrawing from "./AreaDrawing";
 import AreaManager from "./AreaManager";
 
-const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId }) => {
+const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId, onClearSelection }) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null);
   const areaDrawingRef = useRef(null);
@@ -524,6 +524,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId 
         await loadSavedAreas(currentModelId);
         if (areaManagerRef.current) {
           areaManagerRef.current.closeAllPopupsAfterSave();
+        }
+        // ✅ 저장 후 선택 해제
+        if (onClearSelection) {
+          onClearSelection();
         }
       }
 

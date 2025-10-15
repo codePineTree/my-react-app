@@ -10,7 +10,7 @@ import DomainFormPopup from './components/DomainFormPopup';
 // 메인 앱 컴포넌트
 const MainApp = () => {
   const [activeTab, setActiveTab] = useState('도면관리');
-  const [selectedAreaId, setSelectedAreaId] = useState(null);  // ✅ 변경: selectedArea → selectedAreaId
+  const [selectedAreaId, setSelectedAreaId] = useState(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
 
   // CAD 파일 상태
@@ -30,13 +30,19 @@ const MainApp = () => {
     setCadFileType(domainData.cadFilePath.toLowerCase().endsWith('.dwf') ? 'dwf' : 'dxf');
     setCadFilePath(domainData.cadFilePath);
     setModelId(domainData.MODEL_ID);
-    setSelectedAreaId(null);  // ✅ 수정: 새 도면 로드 시 선택 영역 초기화
+    setSelectedAreaId(null); // 새 도면 로드 시 선택 영역 초기화
     setActiveTab('구역관리');
   };
 
-  const handleAreaSelect = (areaId) => {  // ✅ 수정: areaId 받기
+  const handleAreaSelect = (areaId) => {
     console.log('🎯 App.js - 구역 선택됨 (ID):', areaId);
     setSelectedAreaId(areaId);
+  };
+
+  // ✅ 추가: 선택 해제 핸들러
+  const handleClearSelection = () => {
+    console.log('🔄 App.js - 구역 선택 해제');
+    setSelectedAreaId(null);
   };
 
   const triggerSidebarRefresh = () => {
@@ -62,7 +68,7 @@ const MainApp = () => {
         return (
           <>
             <Sidebar
-              selectedArea={selectedAreaId}  // ✅ 변경: selectedAreaId 전달
+              selectedArea={selectedAreaId}
               handleAreaSelect={handleAreaSelect}
               modelId={modelId}
               refreshTrigger={sidebarRefreshTrigger}
@@ -73,7 +79,8 @@ const MainApp = () => {
                 cadFileType={cadFileType}
                 modelId={modelId}
                 onSave={handleSaveComplete}
-                selectedAreaId={selectedAreaId}  // ✅ 변경: selectedAreaId 전달
+                selectedAreaId={selectedAreaId}
+                onClearSelection={handleClearSelection} // ✅ 추가
               />
               <div style={{ height: '100px' }}></div>
             </main>

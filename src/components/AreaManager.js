@@ -89,13 +89,19 @@ const AreaManager = forwardRef(({
   };
 
   const updateEditingArea = (areaId, field, value) => {
-    setEditingAreas(prev => ({
-      ...prev,
-      [areaId]: {
-        ...prev[areaId],
-        [field]: value
-      }
-    }));
+    console.log(`🔼 [부모 updateEditingArea] areaId: ${areaId}, field: ${field}, value: "${value}"`);
+    
+    setEditingAreas(prev => {
+      const newState = {
+        ...prev,
+        [areaId]: {
+          ...prev[areaId],
+          [field]: value
+        }
+      };
+      console.log(`📦 [부모 editingAreas 업데이트됨]`, newState);
+      return newState;
+    });
   };
 
   const deleteAreaLocally = (areaId) => {
@@ -388,14 +394,58 @@ const AreaManager = forwardRef(({
     const area = savedAreas.find(a => a.areaId === areaId);
     const editData = editingAreas[areaId] || {};
     
+    console.log(`🔍 [PropertyForm] 렌더링 - areaId: ${areaId}`);
+    console.log(`📝 [PropertyForm] editData:`, editData);
+    
+    // ✅ 로컬 state로 즉시 반영 (초기값 한 번만 설정)
+    const [localValues, setLocalValues] = useState(() => {
+      console.log(`🎬 [useState 초기화] areaId: ${areaId}`, {
+        areaName: editData.areaName || '',
+        areaDesc: editData.areaDesc || '',
+        areaColor: editData.areaColor || '#CCCCCC'
+      });
+      return {
+        areaName: editData.areaName || '',
+        areaDesc: editData.areaDesc || '',
+        areaColor: editData.areaColor || '#CCCCCC'
+      };
+    });
+
+    console.log(`📊 [localValues 현재값]:`, localValues);
+
     const [isDragging, setIsDragging] = useState(false);
+    const [isComposing, setIsComposing] = useState(false);
     const [position, setPosition] = useState({
       x: 20 + ((openPopups.indexOf(areaId) % 2) * 350),
       y: 350 + (Math.floor(openPopups.indexOf(areaId) / 2) * 200)
     });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    
+    // ✅ 입력 필드들의 포커스 상태 추적
+    const nameInputRef = React.useRef(null);
+    const descTextareaRef = React.useRef(null);
 
-    // ✅ useEffect를 최상단에 배치 (조건문 위에)
+    // ✅ blur 이벤트에서만 부모에 업데이트 (포커스 벗어날 때만)
+    const syncToParent = () => {
+      console.log(`💾 [syncToParent] 부모에 동기화 - areaId: ${areaId}`);
+      
+      if (localValues.areaName !== editData.areaName) {
+        console.log(`🔄 [부모 업데이트] areaName 변경: "${editData.areaName}" → "${localValues.areaName}"`);
+        updateEditingArea(areaId, 'areaName', localValues.areaName);
+      }
+      
+      if (localValues.areaDesc !== editData.areaDesc) {
+        console.log(`🔄 [부모 업데이트] areaDesc 변경`);
+        updateEditingArea(areaId, 'areaDesc', localValues.areaDesc);
+      }
+      
+      if (localValues.areaColor !== editData.areaColor) {
+        console.log(`🔄 [부모 업데이트] areaColor 변경: ${editData.areaColor} → ${localValues.areaColor}`);
+        updateEditingArea(areaId, 'areaColor', localValues.areaColor);
+      }
+    };
+
+    // 드래그 관련 useEffect
     useEffect(() => {
       if (!isDragging) return;
 
@@ -421,14 +471,17 @@ const AreaManager = forwardRef(({
       };
     }, [isDragging, dragStart.x, dragStart.y]);
 
-    // ✅ 조건문은 useEffect 아래에
-    if (!area) return null;
+    if (!area) {
+      console.log(`❌ [PropertyForm] area 없음 - areaId: ${areaId}`);
+      return null;
+    }
 
     const handleMouseDown = (e) => {
       if (e.target.closest('.drag-handle')) {
         e.preventDefault();
         e.stopPropagation();
         
+        console.log(`🖱️ [드래그 시작] areaId: ${areaId}`);
         setIsDragging(true);
         setDragStart({
           x: e.clientX - position.x,
@@ -438,10 +491,22 @@ const AreaManager = forwardRef(({
       }
     };
 
+    const handleInputChange = (field, value) => {
+      console.log(`⌨️ [입력 이벤트] field: ${field}, value: "${value}"`);
+      console.log(`   이전 값: "${localValues[field]}"`);
+      
+      setLocalValues(prev => {
+        const newValues = { ...prev, [field]: value };
+        console.log(`✏️ [로컬 state 업데이트] 새 localValues:`, newValues);
+        return newValues;
+      });
+    };
+
     return (
       <div 
         onClick={(e) => {
           e.stopPropagation();
+          console.log(`👆 [팝업 클릭] areaId: ${areaId} - frontPopup으로 이동`);
           bringToFront(areaId);
         }}
         onMouseDown={handleMouseDown}
@@ -470,9 +535,12 @@ const AreaManager = forwardRef(({
             cursor: 'grab'
           }}
         >
-          <h3 style={{ margin: 0 }}>구역 속성 편집 - {editData.areaName || area.areaName || '이름없음'}</h3>
+          <h3 style={{ margin: 0 }}>구역 속성 편집 - {localValues.areaName || '이름없음'}</h3>
           <button 
-            onClick={() => closePopup(areaId)}
+            onClick={() => {
+              console.log(`❌ [팝업 닫기] areaId: ${areaId}`);
+              closePopup(areaId);
+            }}
             style={{
               background: 'none',
               border: 'none',
@@ -491,8 +559,27 @@ const AreaManager = forwardRef(({
           <label>구역명:</label>
           <input 
             type="text" 
-            value={editData.areaName || ''}
-            onChange={(e) => updateEditingArea(areaId, 'areaName', e.target.value)}
+            value={localValues.areaName}
+            onChange={(e) => {
+              console.log(`🎯 [onChange 트리거] areaName input`);
+              handleInputChange('areaName', e.target.value);
+            }}
+            onCompositionStart={() => {
+              console.log(`🇰🇷 [IME 시작] 한글 조합 시작`);
+              setIsComposing(true);
+            }}
+            onCompositionEnd={(e) => {
+              console.log(`🇰🇷 [IME 종료] 한글 조합 완료: "${e.target.value}"`);
+              setIsComposing(false);
+              handleInputChange('areaName', e.target.value);
+            }}
+            onFocus={() => {
+              console.log(`🎯 [포커스 IN] areaName input`);
+            }}
+            onBlur={() => {
+              console.log(`👋 [포커스 OUT] areaName input - 부모에 동기화`);
+              syncToParent();
+            }}
             style={{ width: '100%', padding: '5px', marginTop: '5px' }}
           />
         </div>
@@ -500,8 +587,27 @@ const AreaManager = forwardRef(({
         <div style={{ marginBottom: '10px' }}>
           <label>설명:</label>
           <textarea 
-            value={editData.areaDesc || ''}
-            onChange={(e) => updateEditingArea(areaId, 'areaDesc', e.target.value)}
+            value={localValues.areaDesc}
+            onChange={(e) => {
+              console.log(`🎯 [onChange 트리거] areaDesc textarea`);
+              handleInputChange('areaDesc', e.target.value);
+            }}
+            onCompositionStart={() => {
+              console.log(`🇰🇷 [IME 시작] 한글 조합 시작 (textarea)`);
+              setIsComposing(true);
+            }}
+            onCompositionEnd={(e) => {
+              console.log(`🇰🇷 [IME 종료] 한글 조합 완료 (textarea): "${e.target.value}"`);
+              setIsComposing(false);
+              handleInputChange('areaDesc', e.target.value);
+            }}
+            onFocus={() => {
+              console.log(`🎯 [포커스 IN] areaDesc textarea`);
+            }}
+            onBlur={() => {
+              console.log(`👋 [포커스 OUT] areaDesc textarea - 부모에 동기화`);
+              syncToParent();
+            }}
             rows={3}
             style={{ width: '100%', padding: '5px', marginTop: '5px' }}
           />
@@ -511,8 +617,15 @@ const AreaManager = forwardRef(({
           <label>색상:</label>
           <input 
             type="color" 
-            value={editData.areaColor || '#CCCCCC'}
-            onChange={(e) => updateEditingArea(areaId, 'areaColor', e.target.value)}
+            value={localValues.areaColor}
+            onChange={(e) => {
+              console.log(`🎯 [onChange 트리거] areaColor: ${e.target.value}`);
+              handleInputChange('areaColor', e.target.value);
+            }}
+            onBlur={() => {
+              console.log(`👋 [포커스 OUT] areaColor - 부모에 동기화`);
+              syncToParent();
+            }}
             style={{ marginTop: '5px', marginLeft: '10px' }}
           />
         </div>
