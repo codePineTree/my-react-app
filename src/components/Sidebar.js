@@ -12,6 +12,7 @@ const Sidebar = ({
   const itemsPerPage = 3;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [hasCurrentAreasUpdated, setHasCurrentAreasUpdated] = useState(false); // ✅ 추가
 
   const API_BASE_URL = 'http://localhost:8080';
 
@@ -53,6 +54,7 @@ const Sidebar = ({
 
   // modelId 변경 시 구역 목록 다시 로드
   useEffect(() => {
+    setHasCurrentAreasUpdated(false); // ✅ 새 모델 로드 시 플래그 리셋
     loadAreaList();
   }, [modelId]);
 
@@ -68,6 +70,11 @@ const Sidebar = ({
   useEffect(() => {
     console.log('🔄 [Sidebar] currentAreas 변경됨:', currentAreas.length);
     console.log('   currentAreas 데이터:', currentAreas);
+    
+    // currentAreas가 한 번이라도 업데이트되었다면 플래그 설정
+    if (currentAreas.length >= 0) {
+      setHasCurrentAreasUpdated(true);
+    }
   }, [currentAreas]);
 
   // ✅ 서버 데이터와 현재 편집 중인 데이터를 병합
@@ -75,35 +82,19 @@ const Sidebar = ({
     console.log('🔍 [Sidebar] getMergedAreas 호출');
     console.log('   - serverAreas 개수:', serverAreas.length);
     console.log('   - currentAreas 개수:', currentAreas.length);
+    console.log('   - hasCurrentAreasUpdated:', hasCurrentAreasUpdated);
     
-    if (currentAreas.length === 0) {
-      // 편집 중인 데이터가 없으면 서버 데이터만 사용
-      console.log('   → 서버 데이터만 사용');
-      return serverAreas;
-    }
-
-    // 서버 데이터를 기반으로 현재 데이터로 업데이트
-    const areaMap = new Map();
+    // ✅ currentAreas가 한 번이라도 업데이트되었으면 currentAreas 사용 (빈 배열이어도!)
+    // 아니면 serverAreas 사용 (초기 로드 상태)
+    const baseAreas = hasCurrentAreasUpdated ? currentAreas : serverAreas;
     
-    // 1. 서버 데이터를 먼저 Map에 추가
-    serverAreas.forEach(area => {
-      areaMap.set(area.areaId, {
-        areaId: area.areaId,
-        areaNm: area.areaNm
-      });
-    });
+    const result = baseAreas.map(area => ({
+      areaId: area.areaId,
+      areaNm: area.areaName || area.areaNm || '이름없음'
+    }));
 
-    // 2. 현재 편집 중인 데이터로 덮어쓰기 (신규 항목도 추가)
-    currentAreas.forEach(area => {
-      areaMap.set(area.areaId, {
-        areaId: area.areaId,
-        areaNm: area.areaName || area.areaNm || '이름없음'
-      });
-    });
-
-    const result = Array.from(areaMap.values());
-    console.log('   → 병합 완료, 최종 개수:', result.length);
-    console.log('   → 병합된 데이터:', result);
+    console.log('   → 최종 표시 구역 개수:', result.length);
+    console.log('   → 표시할 데이터:', result);
     return result;
   };
 
