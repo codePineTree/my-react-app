@@ -69,9 +69,10 @@ const MainApp = () => {
 
     if (result.savedCount > 0) {
       triggerSidebarRefresh();
+          setSelectedAreaId(null); // ✅ 
     }
-
     alert(result.error || result.message || '저장되었습니다.');
+           setSelectedAreaId(null); // ✅ 
   };
 
   const renderContent = () => {
