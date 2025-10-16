@@ -135,7 +135,13 @@ const AreaManager = forwardRef(({
       setSavedAreas(prev => {
         const newAreas = prev.filter(area => area.areaId !== areaId);
         const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
-        if (onAreasChange) onAreasChange(activeAreas);
+        
+        // ✅ 삭제 시 즉시 Sidebar 업데이트
+        if (onAreasChange) {
+          console.log('🔔 [Sidebar 업데이트] 구역 삭제 즉시 반영');
+          onAreasChange(activeAreas);
+        }
+        
         return newAreas;
       });
     } else {
@@ -147,7 +153,13 @@ const AreaManager = forwardRef(({
             : area
         );
         const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
-        if (onAreasChange) onAreasChange(activeAreas);
+        
+        // ✅ 삭제 시 즉시 Sidebar 업데이트
+        if (onAreasChange) {
+          console.log('🔔 [Sidebar 업데이트] 구역 삭제 즉시 반영');
+          onAreasChange(activeAreas);
+        }
+        
         return newAreas;
       });
     }
@@ -445,6 +457,7 @@ const AreaManager = forwardRef(({
             bringToFront={bringToFront}
             isFront={frontPopup === areaId}
             zIndex={frontPopup === areaId ? 2000 : (1000 + index)}
+            popupIndex={index} // ✅ 추가: 인덱스 전달
           />
         );
       })}

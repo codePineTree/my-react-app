@@ -8,7 +8,8 @@ const AreaPropertyForm = ({
   onUpdate,
   bringToFront,
   isFront,
-  zIndex 
+  zIndex,
+  popupIndex = 0 // ✅ 추가: 팝업 인덱스
 }) => {
   const [localValues, setLocalValues] = useState({
     areaName: editData?.areaName || '',
@@ -18,8 +19,8 @@ const AreaPropertyForm = ({
 
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({
-    x: 20,
-    y: 350
+    x: 20 + ((popupIndex % 2) * 350), // ✅ 2열 배치
+    y: 350 + (Math.floor(popupIndex / 2) * 200) // ✅ 2열씩 아래로
   });
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
