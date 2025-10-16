@@ -12,6 +12,7 @@ const MainApp = () => {
   const [activeTab, setActiveTab] = useState('도면관리');
   const [selectedAreaId, setSelectedAreaId] = useState(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [currentAreas, setCurrentAreas] = useState([]); // ✅ 추가: 현재 구역 목록
 
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
@@ -45,6 +46,12 @@ const MainApp = () => {
     setSelectedAreaId(null);
   };
 
+  // ✅ 추가: 구역 목록 업데이트 핸들러
+  const handleAreasChange = (areas) => {
+    console.log('📋 App.js - 구역 목록 업데이트:', areas.length);
+    setCurrentAreas(areas);
+  };
+
   const triggerSidebarRefresh = () => {
     setSidebarRefreshTrigger(prev => prev + 1);
   };
@@ -72,6 +79,7 @@ const MainApp = () => {
               handleAreaSelect={handleAreaSelect}
               modelId={modelId}
               refreshTrigger={sidebarRefreshTrigger}
+              currentAreas={currentAreas} // ✅ 추가
             />
             <main className="main-area" style={{ flexDirection: 'column', gap: '20px' }}>
               <CADDisplay
@@ -80,7 +88,9 @@ const MainApp = () => {
                 modelId={modelId}
                 onSave={handleSaveComplete}
                 selectedAreaId={selectedAreaId}
-                onClearSelection={handleClearSelection} // ✅ 추가
+                onClearSelection={handleClearSelection}
+                onSidebarRefresh={triggerSidebarRefresh}
+                onAreasChange={handleAreasChange} // ✅ 이 prop이 CADDisplay에서 받아서 처리되어야 함
               />
               <div style={{ height: '100px' }}></div>
             </main>

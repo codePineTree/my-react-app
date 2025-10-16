@@ -4,21 +4,22 @@ const Sidebar = ({
   selectedArea, 
   handleAreaSelect, 
   modelId, 
-  refreshTrigger
+  refreshTrigger,
+  currentAreas = [] // ✅ 추가: 실시간 구역 목록
 }) => {
-  const [areas, setAreas] = useState([]);
+  const [serverAreas, setServerAreas] = useState([]); // 서버에서 가져온 구역
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 3; // 3개씩 표시
+  const itemsPerPage = 3;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const API_BASE_URL = 'http://localhost:8080';
 
-  // 구역 목록 로드
+  // 서버에서 구역 목록 로드
   const loadAreaList = async () => {
     if (!modelId) {
       console.log('ModelId가 없어서 구역 목록을 로드하지 않습니다.');
-      setAreas([]);
+      setServerAreas([]);
       return;
     }
 
@@ -26,7 +27,6 @@ const Sidebar = ({
     setError(null);
 
     try {
-      // 전체 구역을 한 번에 가져오기 (페이징은 프론트에서 처리)
       const response = await fetch(
         `${API_BASE_URL}/api/cad/area/names/${modelId}?page=1&size=1000`
       );
@@ -35,18 +35,17 @@ const Sidebar = ({
 
       if (result.success) {
         const data = result.data;
-        setAreas(data.areas || []);
-        setCurrentPage(1); // 첫 페이지로 리셋
-
-        console.log(`구역 목록 로드 완료: ${data.areas?.length || 0}개`);
+        setServerAreas(data.areas || []);
+        setCurrentPage(1);
+        console.log(`서버 구역 목록 로드 완료: ${data.areas?.length || 0}개`);
       } else {
         setError(result.message || '구역 목록을 불러올 수 없습니다.');
-        setAreas([]);
+        setServerAreas([]);
       }
     } catch (err) {
       console.error('구역 목록 로드 실패:', err);
       setError('서버 연결에 실패했습니다.');
-      setAreas([]);
+      setServerAreas([]);
     } finally {
       setLoading(false);
     }
@@ -65,11 +64,59 @@ const Sidebar = ({
     }
   }, [refreshTrigger]);
 
+  // ✅ currentAreas 변경 감지 로그
+  useEffect(() => {
+    console.log('🔄 [Sidebar] currentAreas 변경됨:', currentAreas.length);
+    console.log('   currentAreas 데이터:', currentAreas);
+  }, [currentAreas]);
+
+  // ✅ 서버 데이터와 현재 편집 중인 데이터를 병합
+  const getMergedAreas = () => {
+    console.log('🔍 [Sidebar] getMergedAreas 호출');
+    console.log('   - serverAreas 개수:', serverAreas.length);
+    console.log('   - currentAreas 개수:', currentAreas.length);
+    
+    if (currentAreas.length === 0) {
+      // 편집 중인 데이터가 없으면 서버 데이터만 사용
+      console.log('   → 서버 데이터만 사용');
+      return serverAreas;
+    }
+
+    // 서버 데이터를 기반으로 현재 데이터로 업데이트
+    const areaMap = new Map();
+    
+    // 1. 서버 데이터를 먼저 Map에 추가
+    serverAreas.forEach(area => {
+      areaMap.set(area.areaId, {
+        areaId: area.areaId,
+        areaNm: area.areaNm
+      });
+    });
+
+    // 2. 현재 편집 중인 데이터로 덮어쓰기 (신규 항목도 추가)
+    currentAreas.forEach(area => {
+      areaMap.set(area.areaId, {
+        areaId: area.areaId,
+        areaNm: area.areaName || area.areaNm || '이름없음'
+      });
+    });
+
+    const result = Array.from(areaMap.values());
+    console.log('   → 병합 완료, 최종 개수:', result.length);
+    console.log('   → 병합된 데이터:', result);
+    return result;
+  };
+
+  // ✅ 병합된 구역 목록 사용
+  const areas = getMergedAreas();
+  
+  console.log('📊 [Sidebar] 최종 표시할 구역 수:', areas.length);
+
   // 페이징 계산
   const totalPages = Math.ceil(areas.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentAreas = areas.slice(startIndex, endIndex);
+  const currentAreas_display = areas.slice(startIndex, endIndex);
 
   // 페이지 변경
   const handlePageChange = (pageNum) => {
@@ -109,14 +156,14 @@ const Sidebar = ({
     return pages;
   };
 
-// 구역 클릭 처리
-const handleAreaClick = (area) => {
-  console.log('🖱️ Sidebar - 구역 클릭 (ID):', area.areaId);
-  handleAreaSelect(area.areaId);  // ✅ 수정: area.areaId 전달
-};
+  // 구역 클릭 처리
+  const handleAreaClick = (area) => {
+    console.log('🖱️ Sidebar - 구역 클릭 (ID):', area.areaId);
+    handleAreaSelect(area.areaId);
+  };
+
   return (
     <aside className="sidebar">
-      {/* 구역 리스트 패널 */}
       <div className="area-list-panel">
         <div className="panel-header">구역 리스트</div>
 
@@ -129,16 +176,16 @@ const handleAreaClick = (area) => {
             <div className="error-message">{error}</div>
           )}
 
-          {!loading && !error && currentAreas.length === 0 && (
+          {!loading && !error && currentAreas_display.length === 0 && (
             <div className="empty-message">구역이 없습니다.</div>
           )}
 
-          {!loading && !error && currentAreas.length > 0 && (
+          {!loading && !error && currentAreas_display.length > 0 && (
             <>
-              {currentAreas.map(area => (
+              {currentAreas_display.map(area => (
                 <div
                   key={area.areaId}
-                  className={`area-item ${selectedArea === area.areaNm ? 'selected' : ''}`}
+                  className={`area-item ${selectedArea === area.areaId ? 'selected' : ''}`}
                   onClick={() => handleAreaClick(area)}
                 >
                   • {area.areaNm}
@@ -148,7 +195,7 @@ const handleAreaClick = (area) => {
           )}
         </div>
 
-        {/* 페이징 버튼 - 도면리스트와 동일한 스타일 */}
+        {/* 페이징 버튼 */}
         {totalPages >= 1 && (
           <div style={{ 
             padding: '15px 10px', 
@@ -158,7 +205,6 @@ const handleAreaClick = (area) => {
             borderTop: '1px solid #e0e0e0',
             backgroundColor: '#f8f9fa'
           }}>
-            {/* 이전 버튼 */}
             <button
               onClick={handlePrevPage}
               disabled={currentPage === 1}
@@ -175,7 +221,6 @@ const handleAreaClick = (area) => {
               ◀
             </button>
 
-            {/* 페이지 번호들 */}
             {getPageNumbers().map(pageNum => (
               <button
                 key={pageNum}
@@ -196,7 +241,6 @@ const handleAreaClick = (area) => {
               </button>
             ))}
 
-            {/* 다음 버튼 */}
             <button
               onClick={handleNextPage}
               disabled={currentPage === totalPages}

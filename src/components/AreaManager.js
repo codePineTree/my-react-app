@@ -361,6 +361,10 @@ const AreaManager = forwardRef(({
       closeAllPopups();
     },
 
+    clearSelection: () => {
+      console.log('선택 해제 요청 - 부모에게 알림 필요');
+    },
+
     redrawAreasOnly: () => {
       renderAreasOnly();
     },
@@ -397,7 +401,6 @@ const AreaManager = forwardRef(({
     console.log(`🔍 [PropertyForm] 렌더링 - areaId: ${areaId}`);
     console.log(`📝 [PropertyForm] editData:`, editData);
     
-    // ✅ 로컬 state로 즉시 반영 (초기값 한 번만 설정)
     const [localValues, setLocalValues] = useState(() => {
       console.log(`🎬 [useState 초기화] areaId: ${areaId}`, {
         areaName: editData.areaName || '',
@@ -420,12 +423,8 @@ const AreaManager = forwardRef(({
       y: 350 + (Math.floor(openPopups.indexOf(areaId) / 2) * 200)
     });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-    
-    // ✅ 입력 필드들의 포커스 상태 추적
-    const nameInputRef = React.useRef(null);
-    const descTextareaRef = React.useRef(null);
 
-    // ✅ blur 이벤트에서만 부모에 업데이트 (포커스 벗어날 때만)
+    // ✅ blur 이벤트에서 부모에 업데이트 + savedAreas도 동기화 + 실시간 Sidebar 반영
     const syncToParent = () => {
       console.log(`💾 [syncToParent] 부모에 동기화 - areaId: ${areaId}`);
       
@@ -443,6 +442,29 @@ const AreaManager = forwardRef(({
         console.log(`🔄 [부모 업데이트] areaColor 변경: ${editData.areaColor} → ${localValues.areaColor}`);
         updateEditingArea(areaId, 'areaColor', localValues.areaColor);
       }
+
+      // ✅ savedAreas 즉시 업데이트 + Sidebar 실시간 반영
+      setSavedAreas(prev => {
+        const updated = prev.map(area => 
+          area.areaId === areaId 
+            ? { 
+                ...area, 
+                areaName: localValues.areaName,
+                areaDesc: localValues.areaDesc,
+                areaColor: localValues.areaColor
+              }
+            : area
+        );
+        
+        // ✅ onAreasChange 호출 (Sidebar 실시간 업데이트)
+        const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
+        if (onAreasChange) {
+          console.log('🔔 [Sidebar 실시간 업데이트] blur 시 구역명 변경 즉시 반영');
+          onAreasChange(activeAreas);
+        }
+        
+        return updated;
+      });
     };
 
     // 드래그 관련 useEffect

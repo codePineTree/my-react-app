@@ -2,7 +2,16 @@ import React, { useRef, useEffect, useState } from "react";
 import AreaDrawing from "./AreaDrawing";
 import AreaManager from "./AreaManager";
 
-const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId, onClearSelection }) => {
+const CADDisplay = ({ 
+  cadFilePath, 
+  modelId, 
+  onSave, 
+  cadFileType, 
+  selectedAreaId, 
+  onClearSelection,
+  onSidebarRefresh,
+  onAreasChange  // ✅ 추가
+}) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null);
   const areaDrawingRef = useRef(null);
@@ -409,8 +418,16 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId,
     }
   };
 
+  // ✅ 수정: App.js로 구역 정보 전달 (실시간 업데이트)
   const handleAreasChange = (areas) => {
+    console.log('📋 CADDisplay - handleAreasChange 호출:', areas.length);
     setCompletedAreas(areas.map(a => a.coordinates));
+    
+    // ✅ App.js로 구역 정보 전달 (Sidebar 실시간 반영)
+    if (onAreasChange) {
+      console.log('🔼 CADDisplay → App.js: onAreasChange 호출');
+      onAreasChange(areas);
+    }
   };
 
   const handleSaveJSON = async () => {
@@ -528,6 +545,10 @@ const CADDisplay = ({ cadFilePath, modelId, onSave, cadFileType, selectedAreaId,
         // ✅ 저장 후 선택 해제
         if (onClearSelection) {
           onClearSelection();
+        }
+        // ✅ 저장 후 사이드바 새로고침
+        if (onSidebarRefresh) {
+          onSidebarRefresh();
         }
       }
 
