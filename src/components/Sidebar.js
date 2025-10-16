@@ -90,7 +90,7 @@ const Sidebar = ({
     
     const result = baseAreas.map(area => ({
       areaId: area.areaId,
-      areaNm: area.areaName || area.areaNm || '이름없음'
+      areaNm: area.areaName || area.areaNm || '구역명없음'
     }));
 
     console.log('   → 최종 표시 구역 개수:', result.length);
