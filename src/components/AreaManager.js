@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from "react";
 
-/**
- * AreaManager 컴포넌트 - 다중 팝업 지원 버전
- * 여러 구역의 속성을 동시에 편집하고 일괄 저장 가능
- */
 const AreaManager = forwardRef(({ 
   canvasRef,
   modelId,
@@ -293,6 +289,14 @@ const AreaManager = forwardRef(({
         const updated = [...prev, newArea];
         console.log('✅ 구역 추가됨:', newArea);
         console.log('📊 전체 구역 수:', updated.length);
+        
+        // ✅ 구역 추가 시 Sidebar에 알림
+        const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
+        if (onAreasChange) {
+          console.log('🔔 [Sidebar 업데이트] 신규 구역 추가 반영');
+          onAreasChange(activeAreas);
+        }
+        
         return updated;
       });
     },
@@ -394,56 +398,88 @@ const AreaManager = forwardRef(({
     }
   }, [savedAreas, openPopups, scale, offset, isPenMode]);
 
-  const PropertyForm = ({ areaId }) => {
+  const PropertyForm = React.memo(({ areaId }) => {
     const area = savedAreas.find(a => a.areaId === areaId);
     const editData = editingAreas[areaId] || {};
     
-    console.log(`🔍 [PropertyForm] 렌더링 - areaId: ${areaId}`);
-    console.log(`📝 [PropertyForm] editData:`, editData);
-    
-    const [localValues, setLocalValues] = useState(() => {
-      console.log(`🎬 [useState 초기화] areaId: ${areaId}`, {
-        areaName: editData.areaName || '',
-        areaDesc: editData.areaDesc || '',
-        areaColor: editData.areaColor || '#CCCCCC'
-      });
-      return {
-        areaName: editData.areaName || '',
-        areaDesc: editData.areaDesc || '',
-        areaColor: editData.areaColor || '#CCCCCC'
-      };
-    });
-
-    console.log(`📊 [localValues 현재값]:`, localValues);
+    const [localValues, setLocalValues] = useState(() => ({
+      areaName: editData.areaName || '',
+      areaDesc: editData.areaDesc || '',
+      areaColor: editData.areaColor || '#CCCCCC'
+    }));
 
     const [isDragging, setIsDragging] = useState(false);
-    const [isComposing, setIsComposing] = useState(false);
     const [position, setPosition] = useState({
       x: 20 + ((openPopups.indexOf(areaId) % 2) * 350),
       y: 350 + (Math.floor(openPopups.indexOf(areaId) / 2) * 200)
     });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const updateTimerRef = React.useRef(null);
 
-    // ✅ blur 이벤트에서 부모에 업데이트 + savedAreas도 동기화 + 실시간 Sidebar 반영
+    const handleInputChange = (field, value) => {
+      console.log(`⌨️ [입력 이벤트] field: ${field}, value: "${value}"`);
+      
+      // ✅ 로컬 state 즉시 업데이트
+      setLocalValues(prev => ({
+        ...prev,
+        [field]: value
+      }));
+
+      // ✅ 기존 타이머 취소
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+      }
+
+      // ✅ 500ms 후 부모 업데이트 (debounce)
+      updateTimerRef.current = setTimeout(() => {
+        console.log(`⏰ [debounce 완료] 부모에 동기화 - ${field}: "${value}"`);
+        
+        updateEditingArea(areaId, field, value);
+
+        setSavedAreas(prev => {
+          const updated = prev.map(area => 
+            area.areaId === areaId 
+              ? { 
+                  ...area, 
+                  [field === 'areaName' ? 'areaName' : field === 'areaDesc' ? 'areaDesc' : 'areaColor']: value
+                }
+              : area
+          );
+          
+          const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
+          if (onAreasChange) {
+            console.log('🔔 [Sidebar 업데이트] debounce 후 반영');
+            onAreasChange(activeAreas);
+          }
+          
+          return updated;
+        });
+      }, 500);
+    };
+
+    // ✅ 컴포넌트 언마운트 시 타이머 정리
+    React.useEffect(() => {
+      return () => {
+        if (updateTimerRef.current) {
+          clearTimeout(updateTimerRef.current);
+        }
+      };
+    }, []);
+
+    // ✅ blur 시 즉시 업데이트 (debounce 기다리지 않음)
     const syncToParent = () => {
-      console.log(`💾 [syncToParent] 부모에 동기화 - areaId: ${areaId}`);
+      console.log(`💾 [syncToParent] blur 시 즉시 동기화 - areaId: ${areaId}`);
       
-      if (localValues.areaName !== editData.areaName) {
-        console.log(`🔄 [부모 업데이트] areaName 변경: "${editData.areaName}" → "${localValues.areaName}"`);
-        updateEditingArea(areaId, 'areaName', localValues.areaName);
+      // 대기 중인 타이머 취소
+      if (updateTimerRef.current) {
+        clearTimeout(updateTimerRef.current);
+        updateTimerRef.current = null;
       }
       
-      if (localValues.areaDesc !== editData.areaDesc) {
-        console.log(`🔄 [부모 업데이트] areaDesc 변경`);
-        updateEditingArea(areaId, 'areaDesc', localValues.areaDesc);
-      }
-      
-      if (localValues.areaColor !== editData.areaColor) {
-        console.log(`🔄 [부모 업데이트] areaColor 변경: ${editData.areaColor} → ${localValues.areaColor}`);
-        updateEditingArea(areaId, 'areaColor', localValues.areaColor);
-      }
+      updateEditingArea(areaId, 'areaName', localValues.areaName);
+      updateEditingArea(areaId, 'areaDesc', localValues.areaDesc);
+      updateEditingArea(areaId, 'areaColor', localValues.areaColor);
 
-      // ✅ savedAreas 즉시 업데이트 + Sidebar 실시간 반영
       setSavedAreas(prev => {
         const updated = prev.map(area => 
           area.areaId === areaId 
@@ -456,10 +492,9 @@ const AreaManager = forwardRef(({
             : area
         );
         
-        // ✅ onAreasChange 호출 (Sidebar 실시간 업데이트)
         const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
         if (onAreasChange) {
-          console.log('🔔 [Sidebar 실시간 업데이트] blur 시 구역명 변경 즉시 반영');
+          console.log('🔔 [Sidebar 업데이트] blur 시 즉시 반영');
           onAreasChange(activeAreas);
         }
         
@@ -467,7 +502,6 @@ const AreaManager = forwardRef(({
       });
     };
 
-    // 드래그 관련 useEffect
     useEffect(() => {
       if (!isDragging) return;
 
@@ -493,17 +527,13 @@ const AreaManager = forwardRef(({
       };
     }, [isDragging, dragStart.x, dragStart.y]);
 
-    if (!area) {
-      console.log(`❌ [PropertyForm] area 없음 - areaId: ${areaId}`);
-      return null;
-    }
+    if (!area) return null;
 
     const handleMouseDown = (e) => {
       if (e.target.closest('.drag-handle')) {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log(`🖱️ [드래그 시작] areaId: ${areaId}`);
         setIsDragging(true);
         setDragStart({
           x: e.clientX - position.x,
@@ -513,22 +543,10 @@ const AreaManager = forwardRef(({
       }
     };
 
-    const handleInputChange = (field, value) => {
-      console.log(`⌨️ [입력 이벤트] field: ${field}, value: "${value}"`);
-      console.log(`   이전 값: "${localValues[field]}"`);
-      
-      setLocalValues(prev => {
-        const newValues = { ...prev, [field]: value };
-        console.log(`✏️ [로컬 state 업데이트] 새 localValues:`, newValues);
-        return newValues;
-      });
-    };
-
     return (
       <div 
         onClick={(e) => {
           e.stopPropagation();
-          console.log(`👆 [팝업 클릭] areaId: ${areaId} - frontPopup으로 이동`);
           bringToFront(areaId);
         }}
         onMouseDown={handleMouseDown}
@@ -559,10 +577,7 @@ const AreaManager = forwardRef(({
         >
           <h3 style={{ margin: 0 }}>구역 속성 편집 - {localValues.areaName || '이름없음'}</h3>
           <button 
-            onClick={() => {
-              console.log(`❌ [팝업 닫기] areaId: ${areaId}`);
-              closePopup(areaId);
-            }}
+            onClick={() => closePopup(areaId)}
             style={{
               background: 'none',
               border: 'none',
@@ -582,24 +597,9 @@ const AreaManager = forwardRef(({
           <input 
             type="text" 
             value={localValues.areaName}
-            onChange={(e) => {
-              console.log(`🎯 [onChange 트리거] areaName input`);
-              handleInputChange('areaName', e.target.value);
-            }}
-            onCompositionStart={() => {
-              console.log(`🇰🇷 [IME 시작] 한글 조합 시작`);
-              setIsComposing(true);
-            }}
-            onCompositionEnd={(e) => {
-              console.log(`🇰🇷 [IME 종료] 한글 조합 완료: "${e.target.value}"`);
-              setIsComposing(false);
-              handleInputChange('areaName', e.target.value);
-            }}
-            onFocus={() => {
-              console.log(`🎯 [포커스 IN] areaName input`);
-            }}
+            onChange={(e) => handleInputChange('areaName', e.target.value)}
             onBlur={() => {
-              console.log(`👋 [포커스 OUT] areaName input - 부모에 동기화`);
+              console.log(`👋 [포커스 OUT] areaName - 부모에 동기화`);
               syncToParent();
             }}
             style={{ width: '100%', padding: '5px', marginTop: '5px' }}
@@ -610,24 +610,9 @@ const AreaManager = forwardRef(({
           <label>설명:</label>
           <textarea 
             value={localValues.areaDesc}
-            onChange={(e) => {
-              console.log(`🎯 [onChange 트리거] areaDesc textarea`);
-              handleInputChange('areaDesc', e.target.value);
-            }}
-            onCompositionStart={() => {
-              console.log(`🇰🇷 [IME 시작] 한글 조합 시작 (textarea)`);
-              setIsComposing(true);
-            }}
-            onCompositionEnd={(e) => {
-              console.log(`🇰🇷 [IME 종료] 한글 조합 완료 (textarea): "${e.target.value}"`);
-              setIsComposing(false);
-              handleInputChange('areaDesc', e.target.value);
-            }}
-            onFocus={() => {
-              console.log(`🎯 [포커스 IN] areaDesc textarea`);
-            }}
+            onChange={(e) => handleInputChange('areaDesc', e.target.value)}
             onBlur={() => {
-              console.log(`👋 [포커스 OUT] areaDesc textarea - 부모에 동기화`);
+              console.log(`👋 [포커스 OUT] areaDesc - 부모에 동기화`);
               syncToParent();
             }}
             rows={3}
@@ -641,7 +626,6 @@ const AreaManager = forwardRef(({
             type="color" 
             value={localValues.areaColor}
             onChange={(e) => {
-              console.log(`🎯 [onChange 트리거] areaColor: ${e.target.value}`);
               handleInputChange('areaColor', e.target.value);
             }}
             onBlur={() => {
@@ -653,7 +637,10 @@ const AreaManager = forwardRef(({
         </div>
       </div>
     );
-  };
+  }, (prevProps, nextProps) => {
+    // ✅ areaId가 같으면 리렌더링 안 함
+    return prevProps.areaId === nextProps.areaId;
+  });
 
   return (
     <>

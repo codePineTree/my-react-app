@@ -19,6 +19,13 @@ const MainApp = () => {
   const [cadFileType, setCadFileType] = useState('');
   const [modelId, setModelId] = useState(null);
 
+  // ✅ modelId 변경 시 구역 목록 초기화
+  useEffect(() => {
+    console.log('🔄 modelId 변경됨:', modelId);
+    setCurrentAreas([]);
+    setSelectedAreaId(null);
+  }, [modelId]);
+
   // 도메인 더블클릭
   const handleDomainDoubleClick = (domainData) => {
     console.log('도메인 더블클릭:', domainData);
@@ -32,6 +39,7 @@ const MainApp = () => {
     setCadFilePath(domainData.cadFilePath);
     setModelId(domainData.MODEL_ID);
     setSelectedAreaId(null); // 새 도면 로드 시 선택 영역 초기화
+    setCurrentAreas([]); // ✅ 추가: 새 도면 로드 시 구역 목록 초기화
     setActiveTab('구역관리');
   };
 
