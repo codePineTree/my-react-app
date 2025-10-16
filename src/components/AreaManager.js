@@ -85,7 +85,7 @@ const AreaManager = forwardRef(({
     setFrontPopup(null);
   };
 
-  // ✅ AreaPropertyForm에서 호출될 업데이트 함수 (도면 리스트 방식!)
+  // ✅ AreaPropertyForm에서 호출될 업데이트 함수
   const handlePropertyUpdate = (areaId, field, value) => {
     console.log(`🔼 [handlePropertyUpdate] areaId: ${areaId}, field: ${field}, value: "${value}"`);
     
@@ -98,7 +98,7 @@ const AreaManager = forwardRef(({
       }
     }));
 
-    // savedAreas 즉시 업데이트 + Sidebar 알림 (도면 리스트와 동일!)
+    // ✅ 수정: savedAreas 업데이트는 하되, 자동 렌더링은 막음
     setSavedAreas(prev => {
       const updated = prev.map(area => 
         area.areaId === areaId 
@@ -112,6 +112,8 @@ const AreaManager = forwardRef(({
       );
       
       const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
+      
+      // ✅ onAreasChange는 호출하되, 렌더링은 별도 처리
       if (onAreasChange) {
         console.log('🔔 [Sidebar 실시간 업데이트] onChange 즉시 반영');
         onAreasChange(activeAreas);
@@ -119,6 +121,13 @@ const AreaManager = forwardRef(({
       
       return updated;
     });
+    
+    // ✅ 추가: 색상 변경일 때만 다시 그리기
+    if (field === 'areaColor') {
+      setTimeout(() => {
+        renderAreasOnly();
+      }, 10);
+    }
   };
 
   const deleteAreaLocally = (areaId) => {
@@ -431,6 +440,12 @@ const AreaManager = forwardRef(({
   useEffect(() => {
     console.log('🔄 useEffect 트리거 - savedAreas 변경됨');
     
+    // ✅ 팝업이 열려있을 때는 렌더링 스킵 (입력 중)
+    if (openPopups.length > 0) {
+      console.log('⏸️ 팝업 열림 - 렌더링 스킵');
+      return;
+    }
+    
     if (isPenMode) {
       console.log('✅ 펜모드 - renderAreasOnly만 호출');
       renderAreasOnly();
@@ -438,7 +453,7 @@ const AreaManager = forwardRef(({
       console.log('✅ 일반모드 - renderSavedAreas 호출');
       renderSavedAreas();
     }
-  }, [savedAreas, openPopups, scale, offset, isPenMode]);
+  }, [savedAreas, scale, offset, isPenMode]);
 
   return (
     <>
@@ -457,7 +472,7 @@ const AreaManager = forwardRef(({
             bringToFront={bringToFront}
             isFront={frontPopup === areaId}
             zIndex={frontPopup === areaId ? 2000 : (1000 + index)}
-            popupIndex={index} // ✅ 추가: 인덱스 전달
+            popupIndex={index}
           />
         );
       })}
