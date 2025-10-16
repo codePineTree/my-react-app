@@ -1,9 +1,49 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import './DomainTemplete.css';
 
 const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selectedDomain, onFileChange, uploadedFiles, showDeleteButton, formTitle }) => {
+  const previousAreaValue = useRef(formData.area);
+
+  // formData.area가 변경될 때마다 previousAreaValue 업데이트
+  useEffect(() => {
+    console.log('📌 formData.area 변경됨:', formData.area);
+    previousAreaValue.current = formData.area;
+  }, [formData.area]);
+
   const handleButtonClick = () => {
     document.getElementById('file-input').click();
+  };
+
+  // 면적 입력 처리
+  const handleAreaChange = (e) => {
+    const newValue = e.target.value;
+    
+    console.log('=== handleAreaChange 호출 ===');
+    console.log('입력된 값:', newValue);
+    console.log('이전 값:', previousAreaValue.current);
+    console.log('정규식 테스트 결과:', /^\d*\.?\d*$/.test(newValue));
+    
+    // 빈 문자열이거나 숫자+소수점만 포함된 경우
+    if (newValue === '' || /^\d*\.?\d*$/.test(newValue)) {
+      console.log('✅ 유효한 입력 - 저장');
+      previousAreaValue.current = newValue; // 유효한 값 저장
+      onInputChange(e); // 부모로 전달
+    } else {
+      console.log('❌ 잘못된 입력 - 복원');
+      console.log('복원할 값:', previousAreaValue.current);
+      // 잘못된 입력이면 이전 값으로 복원
+      e.target.value = previousAreaValue.current;
+      
+      // 강제로 이벤트 발생시켜서 React state도 업데이트
+      const syntheticEvent = {
+        target: {
+          name: 'area',
+          value: previousAreaValue.current
+        }
+      };
+      onInputChange(syntheticEvent);
+    }
+    console.log('=========================\n');
   };
 
   return (
@@ -45,7 +85,7 @@ const DomainForm = ({ formData, onInputChange, onSave, onAdd, onRemove, selected
               type="text"
               name="area"
               value={formData.area}
-              onChange={onInputChange}
+              onChange={handleAreaChange}
               className="domain-form-input"
               placeholder="면적을 입력하세요"
             />

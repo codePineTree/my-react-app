@@ -81,6 +81,11 @@ const DomainFormPopup = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    console.log('🔵 DomainFormPopup handleInputChange 호출');
+    console.log('필드명:', name);
+    console.log('값:', value);
+    
     setFormData(prev => ({ ...prev, [name]: value }));
     
     if (selectedDomain) {
@@ -110,7 +115,8 @@ const DomainFormPopup = () => {
     if (!file) return;
     
     setPendingFile(file);
-    setUploadedFiles(prev => [...prev.filter(f => f.isDB), { file, name: file.name, isDB: false }]);
+    // ✅ 수정: 기존 파일 제거하고 새 파일만 표시
+    setUploadedFiles([{ file, name: file.name, isDB: false }]);
     setFormData(prev => ({ ...prev, FILE_PATH: file.name }));
     
     if (selectedDomain) {
@@ -152,6 +158,12 @@ const DomainFormPopup = () => {
     try {
       if (!selectedDomain) {
         alert('도면 정보가 없습니다.');
+        return;
+      }
+
+      // 도면명 필수 검증 추가
+      if (!formData.domainName || formData.domainName.trim() === '') {
+        alert('도면명을 입력해주세요.');
         return;
       }
 
