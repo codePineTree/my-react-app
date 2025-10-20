@@ -17,6 +17,7 @@ const AreaManager = forwardRef(({
   const [openPopups, setOpenPopups] = useState([]);
   const [editingAreas, setEditingAreas] = useState({});
   const [frontPopup, setFrontPopup] = useState(null);
+  const [isLoadingFromServer, setIsLoadingFromServer] = useState(false); // ✅ 추가
 
   const worldToCanvasCoord = (worldCoord) => ({
     x: worldCoord.x * scale + offset.x,
@@ -85,11 +86,9 @@ const AreaManager = forwardRef(({
     setFrontPopup(null);
   };
 
-  // ✅ AreaPropertyForm에서 호출될 업데이트 함수
   const handlePropertyUpdate = (areaId, field, value) => {
     console.log(`🔼 [handlePropertyUpdate] areaId: ${areaId}, field: ${field}, value: "${value}"`);
     
-    // editingAreas 업데이트
     setEditingAreas(prev => ({
       ...prev,
       [areaId]: {
@@ -98,7 +97,6 @@ const AreaManager = forwardRef(({
       }
     }));
 
-    // ✅ 수정: savedAreas 업데이트는 하되, 자동 렌더링은 막음
     setSavedAreas(prev => {
       const updated = prev.map(area => 
         area.areaId === areaId 
@@ -113,7 +111,6 @@ const AreaManager = forwardRef(({
       
       const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
       
-      // ✅ onAreasChange는 호출하되, 렌더링은 별도 처리
       if (onAreasChange) {
         console.log('🔔 [Sidebar 실시간 업데이트] onChange 즉시 반영');
         onAreasChange(activeAreas);
@@ -122,7 +119,6 @@ const AreaManager = forwardRef(({
       return updated;
     });
     
-    // ✅ 추가: 색상 변경일 때만 다시 그리기
     if (field === 'areaColor') {
       setTimeout(() => {
         renderAreasOnly();
@@ -145,7 +141,6 @@ const AreaManager = forwardRef(({
         const newAreas = prev.filter(area => area.areaId !== areaId);
         const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
         
-        // ✅ 삭제 시 즉시 Sidebar 업데이트
         if (onAreasChange) {
           console.log('🔔 [Sidebar 업데이트] 구역 삭제 즉시 반영');
           onAreasChange(activeAreas);
@@ -163,7 +158,6 @@ const AreaManager = forwardRef(({
         );
         const activeAreas = newAreas.filter(area => area.drawingStatus !== 'D');
         
-        // ✅ 삭제 시 즉시 Sidebar 업데이트
         if (onAreasChange) {
           console.log('🔔 [Sidebar 업데이트] 구역 삭제 즉시 반영');
           onAreasChange(activeAreas);
@@ -295,6 +289,29 @@ const AreaManager = forwardRef(({
   };
 
   useImperativeHandle(ref, () => ({
+    // ✅ 수정: 서버 로드 시작 플래그 설정
+    startServerLoad: () => {
+      console.log('🔄 서버 로드 시작 - onAreasChange 일시 중지');
+      setIsLoadingFromServer(true);
+      setSavedAreas([]); // 기존 구역 초기화
+    },
+
+    // ✅ 수정: 서버 로드 완료 플래그 해제
+    finishServerLoad: () => {
+      console.log('✅ 서버 로드 완료 - onAreasChange 재개');
+      setIsLoadingFromServer(false);
+      
+      // ✅ 로드 완료 후 한 번만 onAreasChange 호출
+      setSavedAreas(prev => {
+        const activeAreas = prev.filter(area => area.drawingStatus !== 'D');
+        if (onAreasChange) {
+          console.log('🔔 [Sidebar 업데이트] 서버 로드 완료 - 최종 반영');
+          onAreasChange(activeAreas);
+        }
+        return prev;
+      });
+    },
+
     addSavedArea: (areaData) => {
       const newArea = {
         areaId: areaData.areaId,
@@ -308,8 +325,9 @@ const AreaManager = forwardRef(({
         const updated = [...prev, newArea];
         console.log('저장된 구역 추가:', newArea.areaId);
         
-        const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
-        if (onAreasChange) {
+        // ✅ 수정: 서버 로드 중이 아닐 때만 onAreasChange 호출
+        if (!isLoadingFromServer && onAreasChange) {
+          const activeAreas = updated.filter(area => area.drawingStatus !== 'D');
           console.log('🔔 [Sidebar 업데이트] 서버 구역 로드 반영');
           onAreasChange(activeAreas);
         }
@@ -440,7 +458,6 @@ const AreaManager = forwardRef(({
   useEffect(() => {
     console.log('🔄 useEffect 트리거 - savedAreas 변경됨');
     
-    // ✅ 팝업이 열려있을 때는 렌더링 스킵 (입력 중)
     if (openPopups.length > 0) {
       console.log('⏸️ 팝업 열림 - 렌더링 스킵');
       return;

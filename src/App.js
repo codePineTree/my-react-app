@@ -12,14 +12,14 @@ const MainApp = () => {
   const [activeTab, setActiveTab] = useState('도면관리');
   const [selectedAreaId, setSelectedAreaId] = useState(null);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
-  const [currentAreas, setCurrentAreas] = useState([]); // ✅ 추가: 현재 구역 목록
+  const [currentAreas, setCurrentAreas] = useState([]);
 
   // CAD 파일 상태
   const [cadFilePath, setCadFilePath] = useState('');
   const [cadFileType, setCadFileType] = useState('');
   const [modelId, setModelId] = useState(null);
 
-  // ✅ modelId 변경 시 구역 목록 초기화
+  // modelId 변경 시 구역 목록 초기화
   useEffect(() => {
     console.log('🔄 modelId 변경됨:', modelId);
     setCurrentAreas([]);
@@ -38,8 +38,8 @@ const MainApp = () => {
     setCadFileType(domainData.cadFilePath.toLowerCase().endsWith('.dwf') ? 'dwf' : 'dxf');
     setCadFilePath(domainData.cadFilePath);
     setModelId(domainData.MODEL_ID);
-    setSelectedAreaId(null); // 새 도면 로드 시 선택 영역 초기화
-    setCurrentAreas([]); // ✅ 추가: 새 도면 로드 시 구역 목록 초기화
+    setSelectedAreaId(null);
+    setCurrentAreas([]);
     setActiveTab('구역관리');
   };
 
@@ -48,13 +48,13 @@ const MainApp = () => {
     setSelectedAreaId(areaId);
   };
 
-  // ✅ 추가: 선택 해제 핸들러
+  // 선택 해제 핸들러
   const handleClearSelection = () => {
     console.log('🔄 App.js - 구역 선택 해제');
     setSelectedAreaId(null);
   };
 
-  // ✅ 추가: 구역 목록 업데이트 핸들러
+  // 구역 목록 업데이트 핸들러
   const handleAreasChange = (areas) => {
     console.log('📋 App.js - 구역 목록 업데이트:', areas.length);
     setCurrentAreas(areas);
@@ -68,11 +68,12 @@ const MainApp = () => {
     console.log('저장 완료:', result);
 
     if (result.savedCount > 0) {
+      // ✅ 저장 후 currentAreas 초기화하여 서버 데이터를 다시 로드하도록 함
+      setCurrentAreas([]);
+      setSelectedAreaId(null);
       triggerSidebarRefresh();
-          setSelectedAreaId(null); // ✅ 
     }
     alert(result.error || result.message || '저장되었습니다.');
-           setSelectedAreaId(null); // ✅ 
   };
 
   const renderContent = () => {
@@ -88,7 +89,7 @@ const MainApp = () => {
               handleAreaSelect={handleAreaSelect}
               modelId={modelId}
               refreshTrigger={sidebarRefreshTrigger}
-              currentAreas={currentAreas} // ✅ 추가
+              currentAreas={currentAreas}
             />
             <main className="main-area" style={{ flexDirection: 'column', gap: '20px' }}>
               <CADDisplay
@@ -99,7 +100,7 @@ const MainApp = () => {
                 selectedAreaId={selectedAreaId}
                 onClearSelection={handleClearSelection}
                 onSidebarRefresh={triggerSidebarRefresh}
-                onAreasChange={handleAreasChange} // ✅ 이 prop이 CADDisplay에서 받아서 처리되어야 함
+                onAreasChange={handleAreasChange}
               />
               <div style={{ height: '100px' }}></div>
             </main>

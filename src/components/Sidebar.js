@@ -5,14 +5,14 @@ const Sidebar = ({
   handleAreaSelect, 
   modelId, 
   refreshTrigger,
-  currentAreas = [] // ✅ 추가: 실시간 구역 목록
+  currentAreas = []
 }) => {
-  const [serverAreas, setServerAreas] = useState([]); // 서버에서 가져온 구역
+  const [serverAreas, setServerAreas] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [hasCurrentAreasUpdated, setHasCurrentAreasUpdated] = useState(false); // ✅ 추가
+  const [hasCurrentAreasUpdated, setHasCurrentAreasUpdated] = useState(false);
 
   const API_BASE_URL = 'http://localhost:8080';
 
@@ -54,7 +54,7 @@ const Sidebar = ({
 
   // modelId 변경 시 구역 목록 다시 로드
   useEffect(() => {
-    setHasCurrentAreasUpdated(false); // ✅ 새 모델 로드 시 플래그 리셋
+    setHasCurrentAreasUpdated(false);
     loadAreaList();
   }, [modelId]);
 
@@ -62,30 +62,34 @@ const Sidebar = ({
   useEffect(() => {
     if (refreshTrigger && modelId) {
       console.log('구역 변경 감지 - 목록 새로고침');
+      setHasCurrentAreasUpdated(false); // ✅ 플래그 리셋하여 서버 데이터 사용
       loadAreaList();
     }
   }, [refreshTrigger]);
 
-  // ✅ currentAreas 변경 감지 로그
+  // currentAreas 변경 감지
   useEffect(() => {
     console.log('🔄 [Sidebar] currentAreas 변경됨:', currentAreas.length);
     console.log('   currentAreas 데이터:', currentAreas);
     
-    // currentAreas가 한 번이라도 업데이트되었다면 플래그 설정
-    if (currentAreas.length >= 0) {
+    // ✅ currentAreas가 비어있지 않을 때만 플래그 설정
+    if (currentAreas.length > 0) {
       setHasCurrentAreasUpdated(true);
+    } else {
+      // 비어있으면 서버 데이터를 사용하도록 플래그 해제
+      setHasCurrentAreasUpdated(false);
     }
   }, [currentAreas]);
 
-  // ✅ 서버 데이터와 현재 편집 중인 데이터를 병합
+  // 서버 데이터와 현재 편집 중인 데이터를 병합
   const getMergedAreas = () => {
     console.log('🔍 [Sidebar] getMergedAreas 호출');
     console.log('   - serverAreas 개수:', serverAreas.length);
     console.log('   - currentAreas 개수:', currentAreas.length);
     console.log('   - hasCurrentAreasUpdated:', hasCurrentAreasUpdated);
     
-    // ✅ currentAreas가 한 번이라도 업데이트되었으면 currentAreas 사용 (빈 배열이어도!)
-    // 아니면 serverAreas 사용 (초기 로드 상태)
+    // ✅ currentAreas가 있고 플래그가 true면 currentAreas 사용
+    // 아니면 serverAreas 사용
     const baseAreas = hasCurrentAreasUpdated ? currentAreas : serverAreas;
     
     const result = baseAreas.map(area => ({
@@ -98,7 +102,7 @@ const Sidebar = ({
     return result;
   };
 
-  // ✅ 병합된 구역 목록 사용
+  // 병합된 구역 목록 사용
   const areas = getMergedAreas();
   
   console.log('📊 [Sidebar] 최종 표시할 구역 수:', areas.length);

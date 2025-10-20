@@ -10,7 +10,7 @@ const CADDisplay = ({
   selectedAreaId, 
   onClearSelection,
   onSidebarRefresh,
-  onAreasChange  // ✅ 추가
+  onAreasChange
 }) => {
   const canvasRef = useRef(null);
   const areaManagerRef = useRef(null);
@@ -276,8 +276,14 @@ const CADDisplay = ({
     };
   };
 
+  // ✅ 수정: 서버 로드 시 onAreasChange 호출 방지
   const loadSavedAreas = async (modelId) => {
     try {
+      // ✅ 서버 로드 시작 알림
+      if (areaManagerRef.current) {
+        areaManagerRef.current.startServerLoad();
+      }
+
       const response = await fetch(`http://localhost:8080/api/cad/area/list/${modelId}`);
 
       if (response.ok) {
@@ -307,8 +313,18 @@ const CADDisplay = ({
           setCompletedAreas(loadedCoordinates);
         }
       }
+
+      // ✅ 서버 로드 완료 알림
+      if (areaManagerRef.current) {
+        areaManagerRef.current.finishServerLoad();
+      }
     } catch (error) {
       console.error('구역 로드 오류:', error);
+      
+      // ✅ 에러 발생 시에도 플래그 해제
+      if (areaManagerRef.current) {
+        areaManagerRef.current.finishServerLoad();
+      }
     }
   };
 
@@ -418,12 +434,10 @@ const CADDisplay = ({
     }
   };
 
-  // ✅ 수정: App.js로 구역 정보 전달 (실시간 업데이트)
   const handleAreasChange = (areas) => {
     console.log('📋 CADDisplay - handleAreasChange 호출:', areas.length);
     setCompletedAreas(areas.map(a => a.coordinates));
     
-    // ✅ App.js로 구역 정보 전달 (Sidebar 실시간 반영)
     if (onAreasChange) {
       console.log('🔼 CADDisplay → App.js: onAreasChange 호출');
       onAreasChange(areas);
@@ -542,11 +556,9 @@ const CADDisplay = ({
         if (areaManagerRef.current) {
           areaManagerRef.current.closeAllPopupsAfterSave();
         }
-        // ✅ 저장 후 선택 해제
         if (onClearSelection) {
           onClearSelection();
         }
-        // ✅ 저장 후 사이드바 새로고침
         if (onSidebarRefresh) {
           onSidebarRefresh();
         }
